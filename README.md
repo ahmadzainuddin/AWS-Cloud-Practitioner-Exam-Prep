@@ -20,6 +20,12 @@ AWS Cloud Practitioner Exam Prep is a Vue-based practice exam dashboard for AWS 
 
 The dashboard is designed for focused exam practice. Users can select an exam, move between questions, submit answers, review the correct answer, and track score and completion progress without needing a backend service.
 
+## Disclaimer
+
+This project is an educational practice tool created for AWS Cloud Practitioner exam revision. It is not an official AWS product, training platform, certification provider, or exam simulator.
+
+AWS, AWS Cloud Practitioner, and related service names are trademarks of Amazon Web Services, Inc. or its affiliates. The questions and explanations in this project should be used as study support only. Users should always refer to official AWS documentation, AWS Skill Builder, and the latest certification exam guide for authoritative information.
+
 ## Dataset
 
 Current dataset:
@@ -153,6 +159,32 @@ The workflow runs on every push to `main` and performs:
 - Keep `package-lock.json` committed for reproducible dependency installs.
 - Validate data changes with `npm run build` before publishing.
 - If new exam data is imported from Markdown, verify that numbered lists and `Correct Answer:` blocks are parsed correctly before replacing JSON.
+
+## Author
+
+Developed by Ahmad Zainuddin.
+
+BSc (Hons) Information Technology candidate at Malaysia University of Science and Technology (MUST), with interests in data science, cloud computing, fintech systems, and financial analytics.
+
+This project demonstrates a browser-based AWS Cloud Practitioner practice exam dashboard using Vue.js, Vite, static JSON datasets, cookie-based progress tracking, and GitHub Pages deployment.
+
+Areas of interest: financial analytics, cloud computing, fintech systems, data visualization, and AI-assisted applications.
+
+Relevant coursework:
+
+- Data Science
+- Business Analytics & Artificial Intelligence
+- Applied Statistics
+- Object-Oriented Analysis & Design
+- System Analysis and Design
+- Software Engineering
+- Data Structures & Algorithms
+
+GitHub: [@ahmadzainuddin](https://github.com/ahmadzainuddin)
+
+Project: AWS Cloud Practitioner Exam Prep
+
+Live Demo: [ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/)
 
 ## License
 
