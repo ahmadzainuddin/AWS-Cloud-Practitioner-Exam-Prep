@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/License-MIT-8cc84b?style=for-the-badge)
 ![Responsive](https://img.shields.io/badge/Responsive-Dashboard-0f766e?style=for-the-badge)
 
-[Live Demo](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/) · [Repository](https://github.com/ahmadzainuddin/AWS-Cloud-Practitioner-Exam-Prep)
+[GitHub Pages](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/) · [Cloudflare Pages](https://aws-cloud-practitioner-exam-prep.pages.dev/) · [Repository](https://github.com/ahmadzainuddin/AWS-Cloud-Practitioner-Exam-Prep)
 
 </div>
 
@@ -184,7 +184,9 @@ Email: [zainuddin@codemaster.my](mailto:zainuddin@codemaster.my)
 
 Project: AWS Cloud Practitioner Exam Prep
 
-Live Demo: [ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/)
+Live Demo: [aws-cloud-practitioner-exam-prep.pages.dev](https://aws-cloud-practitioner-exam-prep.pages.dev/)
+
+GitHub Pages: [ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/)
 
 ## License
 
