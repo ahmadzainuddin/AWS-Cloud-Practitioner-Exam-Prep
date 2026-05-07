@@ -12,12 +12,14 @@ The format follows a practical changelog style, with the newest changes listed f
 - Added `package-lock.json` to make dependency installation reproducible across local and GitHub Actions builds.
 - Added dashboard screenshot under `docs/screenshots/`.
 - Added dashboard screenshot preview in `README.md`.
+- Added randomized question ordering from the JSON dataset on each app load.
 
 ### Changed
 
 - Cleaned the practice exam dataset by removing all questions with missing or empty `answer` arrays.
 - Removed empty exams from the published dataset after unanswered questions were filtered out.
 - Updated the dataset to publish only answerable exams.
+- Updated the question header to show the current randomized position in the active exam.
 
 ### Fixed
 

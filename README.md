@@ -42,6 +42,7 @@ Current dataset:
 ## Features
 
 - Exam selector for available practice exams
+- Randomized question order on each exam load
 - Question navigation with previous and next controls
 - Single-answer and multi-answer question support
 - Correct and incorrect answer highlighting after submission
@@ -133,6 +134,8 @@ aws_mcq_dashboard_state
 ```
 
 The cookie stores selected exam index, current question index, selected answers, and submitted questions. It is scoped to the site path and expires after one year.
+
+Question order is randomized from `public/practice-exams.json` when the app loads. Answer and submission state are still tracked by each question's original `number` field, so scoring remains stable even when display order changes.
 
 ## Deployment
 

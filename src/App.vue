@@ -51,7 +51,7 @@
       <header class="content-header">
         <div>
           <h2>{{ currentExam.title }}</h2>
-          <p>Question {{ currentQuestion.number }} of {{ currentExam.questions.length }}</p>
+          <p>Question {{ currentQuestionIdx + 1 }} of {{ currentExam.questions.length }}</p>
         </div>
         <div class="header-actions">
           <button class="chip" @click="prevQuestion" :disabled="currentQuestionIdx === 0">Prev</button>
@@ -203,6 +203,17 @@ function loadState() {
   }
 }
 
+function shuffleQuestions(questions) {
+  const shuffled = [...questions]
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const current = shuffled[i]
+    shuffled[i] = shuffled[j]
+    shuffled[j] = current
+  }
+  return shuffled
+}
+
 function toggleAnswer(key) {
   if (isCurrentSubmitted.value) return
   const qNum = currentQuestion.value.number
@@ -312,7 +323,11 @@ watch(selectedExamIndex, () => {
 onMounted(async () => {
   loadState()
   const res = await fetch(`${import.meta.env.BASE_URL}practice-exams.json`)
-  exams.value = await res.json()
+  const loadedExams = await res.json()
+  exams.value = loadedExams.map((exam) => ({
+    ...exam,
+    questions: shuffleQuestions(exam.questions),
+  }))
 
   if (selectedExamIndex.value > exams.value.length - 1) {
     selectedExamIndex.value = 0

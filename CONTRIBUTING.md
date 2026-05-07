@@ -62,6 +62,7 @@ Exam data is the most important part of this project. Before committing changes 
 - Every answer key exists in the question options.
 - `question_count` matches the number of questions in the exam.
 - Question numbers are unique within an exam.
+- Question numbers remain stable because the app uses them to track answers and submissions while randomizing display order.
 
 Useful validation command:
 
