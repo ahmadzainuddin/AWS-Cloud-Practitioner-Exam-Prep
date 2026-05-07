@@ -16,7 +16,6 @@ This document describes the repository layout and the role of each important fil
 ├── index.html
 ├── package-lock.json
 ├── package.json
-├── practice-exams.backup-2026-05-07.json
 ├── practice-exams.json
 ├── public/
 ├── src/
@@ -106,17 +105,6 @@ This is the file used by the deployed GitHub Pages app.
 Root-level copy of the exam dataset. This is useful for data inspection, maintenance scripts, and quick validation commands.
 
 Keep it synchronized with `public/practice-exams.json`.
-
-### Backup JSON Files
-
-Backup files preserve the dataset before unanswered questions and empty exams were removed:
-
-```text
-practice-exams.backup-2026-05-07.json
-public/practice-exams.backup-2026-05-07.json
-```
-
-Use these only as recovery references. The application does not load them directly.
 
 ## Configuration
 
@@ -211,4 +199,3 @@ Upload dist artifact
         ↓
 Deploy to GitHub Pages
 ```
-

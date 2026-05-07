@@ -10,9 +10,6 @@ The format follows a practical changelog style, with the newest changes listed f
 
 - Added `.gitignore` entries for generated build and dependency directories.
 - Added `package-lock.json` to make dependency installation reproducible across local and GitHub Actions builds.
-- Added backup copies of the original practice exam JSON files:
-  - `practice-exams.backup-2026-05-07.json`
-  - `public/practice-exams.backup-2026-05-07.json`
 
 ### Changed
 
@@ -48,4 +45,3 @@ The format follows a practical changelog style, with the newest changes listed f
 - Added score and progress tracking.
 - Added cookie-based local progress persistence.
 - Added GitHub Pages deployment workflow.
-
