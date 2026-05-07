@@ -1,12 +1,26 @@
+<div align="center">
+
 # AWS Cloud Practitioner Exam Prep
 
-A Vue-based practice exam dashboard for AWS Cloud Practitioner revision. The application serves multiple-choice exams from static JSON, tracks progress in the browser, and publishes automatically to GitHub Pages.
+**Professional AWS Cloud Practitioner practice exam dashboard using Vue.js, Vite, and static JSON exam data.**
 
-Live site: https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/
+![Vue](https://img.shields.io/badge/Vue-3-42b883?style=for-the-badge&logo=vue.js&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646cff?style=for-the-badge&logo=vite&logoColor=white)
+![GitHub Pages](https://img.shields.io/badge/GitHub-Pages-222222?style=for-the-badge&logo=github&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-8cc84b?style=for-the-badge)
+![Responsive](https://img.shields.io/badge/Responsive-Dashboard-0f766e?style=for-the-badge)
+
+[Live Demo](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/) · [Repository](https://github.com/ahmadzainuddin/AWS-Cloud-Practitioner-Exam-Prep)
+
+</div>
 
 ## Overview
 
+AWS Cloud Practitioner Exam Prep is a Vue-based practice exam dashboard for AWS Cloud Practitioner revision. The application serves multiple-choice exams from static JSON, tracks progress in the browser, and publishes automatically to GitHub Pages.
+
 The dashboard is designed for focused exam practice. Users can select an exam, move between questions, submit answers, review the correct answer, and track score and completion progress without needing a backend service.
+
+## Dataset
 
 Current dataset:
 
@@ -140,3 +154,6 @@ The workflow runs on every push to `main` and performs:
 - Validate data changes with `npm run build` before publishing.
 - If new exam data is imported from Markdown, verify that numbered lists and `Correct Answer:` blocks are parsed correctly before replacing JSON.
 
+## License
+
+This project is licensed under the MIT License.
