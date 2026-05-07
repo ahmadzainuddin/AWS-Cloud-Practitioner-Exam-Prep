@@ -10,6 +10,8 @@ The format follows a practical changelog style, with the newest changes listed f
 
 - Added `.gitignore` entries for generated build and dependency directories.
 - Added `package-lock.json` to make dependency installation reproducible across local and GitHub Actions builds.
+- Added dashboard screenshot under `docs/print-screen/`.
+- Added dashboard screenshot preview in `README.md`.
 
 ### Changed
 

@@ -20,6 +20,10 @@ AWS Cloud Practitioner Exam Prep is a Vue-based practice exam dashboard for AWS 
 
 The dashboard is designed for focused exam practice. Users can select an exam, move between questions, submit answers, review the correct answer, and track score and completion progress without needing a backend service.
 
+## Screenshot
+
+![AWS Cloud Practitioner Exam Prep dashboard](docs/print-screen/aws-cloud-practitioner-dashboard.png)
+
 ## Disclaimer
 
 This project is an educational practice tool created for AWS Cloud Practitioner exam revision. It is not an official AWS product, training platform, certification provider, or exam simulator.

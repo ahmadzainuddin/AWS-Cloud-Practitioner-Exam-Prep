@@ -10,6 +10,7 @@ This document describes the repository layout and the role of each important fil
 ├── .gitignore
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
+├── docs/
 ├── LICENSE
 ├── PROJECT_STRUCTURE.md
 ├── README.md
@@ -98,6 +99,12 @@ fetch(`${import.meta.env.BASE_URL}practice-exams.json`)
 ```
 
 This is the file used by the deployed GitHub Pages app.
+
+## Documentation Assets
+
+### `docs/print-screen/aws-cloud-practitioner-dashboard.png`
+
+Dashboard screenshot used in `README.md`.
 
 ## Configuration
 
