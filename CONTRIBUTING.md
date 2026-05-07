@@ -53,7 +53,7 @@ Recommended prefixes:
 
 ## Data Contribution Rules
 
-Exam data is the most important part of this project. Before committing changes to `practice-exams.json` or `public/practice-exams.json`, verify the following:
+Exam data is the most important part of this project. Before committing changes to `public/practice-exams.json`, verify the following:
 
 - Both JSON files are valid.
 - Both JSON files contain the same exam data.
@@ -66,10 +66,10 @@ Exam data is the most important part of this project. Before committing changes 
 Useful validation command:
 
 ```bash
-node -e "const fs=require('fs'); for (const f of ['practice-exams.json','public/practice-exams.json']) { const exams=JSON.parse(fs.readFileSync(f,'utf8')); let questions=0, emptyAnswers=0, emptyExams=0; for (const exam of exams) { if (!exam.questions.length) emptyExams++; questions += exam.questions.length; for (const q of exam.questions) if (!Array.isArray(q.answer) || q.answer.length===0) emptyAnswers++; } console.log(f, { exams: exams.length, questions, emptyExams, emptyAnswers }); }"
+node -e "const fs=require('fs'); const f='public/practice-exams.json'; const exams=JSON.parse(fs.readFileSync(f,'utf8')); let questions=0, emptyAnswers=0, emptyExams=0; for (const exam of exams) { if (!exam.questions.length) emptyExams++; questions += exam.questions.length; for (const q of exam.questions) if (!Array.isArray(q.answer) || q.answer.length===0) emptyAnswers++; } console.log(f, { exams: exams.length, questions, emptyExams, emptyAnswers });"
 ```
 
-## JSON Synchronization
+## JSON Data Source
 
 The app reads from:
 
@@ -77,13 +77,7 @@ The app reads from:
 public/practice-exams.json
 ```
 
-The root file is maintained for inspection and data management:
-
-```text
-practice-exams.json
-```
-
-When editing exam data, update both files together unless the project is later refactored to use a single source of truth.
+This file is the only maintained exam dataset. Do not add a duplicate root-level copy unless the project introduces a documented data generation workflow.
 
 ## UI Contribution Guidelines
 
@@ -113,4 +107,3 @@ When reporting a bug, include:
 - Actual behavior
 - Screenshot if the issue is visual
 - Browser and device information if relevant
-

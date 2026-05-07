@@ -16,7 +16,6 @@ This document describes the repository layout and the role of each important fil
 ├── index.html
 ├── package-lock.json
 ├── package.json
-├── practice-exams.json
 ├── public/
 ├── src/
 └── vite.config.js
@@ -49,7 +48,7 @@ The main application component.
 
 Responsibilities:
 
-- Load `practice-exams.json`
+- Load `public/practice-exams.json` through Vite's public asset path
 - Store selected exam and question state
 - Render the sidebar, stats, question card, options, and navigator
 - Track selected answers and submitted questions
@@ -92,19 +91,13 @@ Responsibilities:
 
 ### `public/practice-exams.json`
 
-Runtime data source. Vite serves this file as a public static asset, and the app fetches it with:
+Runtime data source and the only maintained exam dataset. Vite serves this file as a public static asset, and the app fetches it with:
 
 ```js
 fetch(`${import.meta.env.BASE_URL}practice-exams.json`)
 ```
 
 This is the file used by the deployed GitHub Pages app.
-
-### `practice-exams.json`
-
-Root-level copy of the exam dataset. This is useful for data inspection, maintenance scripts, and quick validation commands.
-
-Keep it synchronized with `public/practice-exams.json`.
 
 ## Configuration
 

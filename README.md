@@ -89,13 +89,7 @@ The application loads exam data from:
 public/practice-exams.json
 ```
 
-A root copy is also kept at:
-
-```text
-practice-exams.json
-```
-
-Both files should stay synchronized because the root copy is useful for inspection and maintenance, while the public copy is served by Vite at runtime.
+This is the single source of truth for the published exam dataset. Vite serves it as a public static asset at runtime.
 
 Each exam uses this structure:
 
