@@ -176,6 +176,8 @@ Relevant coursework:
 
 GitHub: [@ahmadzainuddin](https://github.com/ahmadzainuddin)
 
+Email: [zainuddin@codemaster.my](mailto:zainuddin@codemaster.my)
+
 Project: AWS Cloud Practitioner Exam Prep
 
 Live Demo: [ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep](https://ahmadzainuddin.github.io/AWS-Cloud-Practitioner-Exam-Prep/)
