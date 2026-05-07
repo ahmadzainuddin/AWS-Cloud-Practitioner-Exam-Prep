@@ -102,7 +102,7 @@ This is the file used by the deployed GitHub Pages app.
 
 ## Documentation Assets
 
-### `docs/print-screen/aws-cloud-practitioner-dashboard.png`
+### `docs/screenshots/aws-cloud-practitioner-dashboard.png`
 
 Dashboard screenshot used in `README.md`.
 

@@ -22,7 +22,7 @@ The dashboard is designed for focused exam practice. Users can select an exam, m
 
 ## Screenshot
 
-![AWS Cloud Practitioner Exam Prep dashboard](docs/print-screen/aws-cloud-practitioner-dashboard.png)
+![AWS Cloud Practitioner Exam Prep dashboard](docs/screenshots/aws-cloud-practitioner-dashboard.png)
 
 ## Disclaimer
 
