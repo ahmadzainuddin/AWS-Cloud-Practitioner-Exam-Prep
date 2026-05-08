@@ -87,13 +87,12 @@
       <section class="navigator">
         <button
           v-for="(question, idx) in currentExam.questions"
-          :key="question.number"
+          :key="`${question.number}-${idx}`"
           class="nav-item"
           :class="navClass(idx, question.number)"
           @click="currentQuestionIdx = idx"
         >
-          <span v-if="isQuestionSubmitted(question.number)">{{ isQuestionCorrect(question.number) ? '✓' : '✕' }}</span>
-          <span v-else>{{ question.number }}</span>
+          <span>{{ idx + 1 }}</span>
         </button>
       </section>
     </main>
@@ -110,10 +109,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 const COOKIE_KEY = 'aws_mcq_dashboard_state'
 
 const exams = ref([])
+const rawExams = ref([])
 const selectedExamIndex = ref(0)
 const currentQuestionIdx = ref(0)
 const answersByExam = ref({})
 const submittedByExam = ref({})
+const questionOrderByExam = ref({})
 
 const currentExam = computed(() => exams.value[selectedExamIndex.value])
 const currentQuestion = computed(() => currentExam.value?.questions[currentQuestionIdx.value])
@@ -185,6 +186,7 @@ function saveState() {
     currentQuestionIdx: currentQuestionIdx.value,
     answersByExam: answersByExam.value,
     submittedByExam: submittedByExam.value,
+    questionOrderByExam: questionOrderByExam.value,
   }
   setCookie(COOKIE_KEY, JSON.stringify(payload))
 }
@@ -198,6 +200,7 @@ function loadState() {
     currentQuestionIdx.value = parsed.currentQuestionIdx || 0
     answersByExam.value = parsed.answersByExam || {}
     submittedByExam.value = parsed.submittedByExam || {}
+    questionOrderByExam.value = parsed.questionOrderByExam || {}
   } catch {
     // Ignore malformed cookie
   }
@@ -212,6 +215,40 @@ function shuffleQuestions(questions) {
     shuffled[j] = current
   }
   return shuffled
+}
+
+function isValidQuestionOrder(exam, order) {
+  if (!Array.isArray(order) || order.length !== exam.questions.length) return false
+  const questionNumbers = new Set(exam.questions.map((q) => q.number))
+  return order.every((number) => questionNumbers.has(number)) && new Set(order).size === order.length
+}
+
+function applyQuestionOrder(exam, order) {
+  const questionMap = new Map(exam.questions.map((question) => [question.number, question]))
+  return {
+    ...exam,
+    questions: order.map((number) => questionMap.get(number)).filter(Boolean),
+  }
+}
+
+function ensureExamQuestionOrder(examIndex, forceNewOrder = false) {
+  const exam = rawExams.value[examIndex]
+  if (!exam) return
+
+  const examKey = exam.source_file
+  const storedOrder = questionOrderByExam.value[examKey]
+  const shouldCreateOrder = forceNewOrder || !isValidQuestionOrder(exam, storedOrder)
+  const order = shouldCreateOrder ? shuffleQuestions(exam.questions).map((question) => question.number) : storedOrder
+
+  if (shouldCreateOrder) {
+    questionOrderByExam.value = {
+      ...questionOrderByExam.value,
+      [examKey]: order,
+    }
+  }
+
+  const orderedExam = applyQuestionOrder(exam, order)
+  exams.value = exams.value.map((item, idx) => (idx === examIndex ? orderedExam : item))
 }
 
 function toggleAnswer(key) {
@@ -303,6 +340,10 @@ function isQuestionCorrect(qNum) {
 
 function resetCurrentExam() {
   if (!currentExamKey.value) return
+  const nextQuestionOrderByExam = { ...questionOrderByExam.value }
+  delete nextQuestionOrderByExam[currentExamKey.value]
+
+  questionOrderByExam.value = nextQuestionOrderByExam
   answersByExam.value = {
     ...answersByExam.value,
     [currentExamKey.value]: {},
@@ -312,26 +353,28 @@ function resetCurrentExam() {
     [currentExamKey.value]: {},
   }
   currentQuestionIdx.value = 0
+  ensureExamQuestionOrder(selectedExamIndex.value, true)
 }
 
-watch([selectedExamIndex, currentQuestionIdx, answersByExam, submittedByExam], saveState, { deep: true })
+watch([selectedExamIndex, currentQuestionIdx, answersByExam, submittedByExam, questionOrderByExam], saveState, { deep: true })
 
 watch(selectedExamIndex, () => {
   currentQuestionIdx.value = 0
+  ensureExamQuestionOrder(selectedExamIndex.value)
 })
 
 onMounted(async () => {
   loadState()
   const res = await fetch(`${import.meta.env.BASE_URL}practice-exams.json`)
   const loadedExams = await res.json()
-  exams.value = loadedExams.map((exam) => ({
-    ...exam,
-    questions: shuffleQuestions(exam.questions),
-  }))
+  rawExams.value = loadedExams
+  exams.value = loadedExams
 
   if (selectedExamIndex.value > exams.value.length - 1) {
     selectedExamIndex.value = 0
   }
+
+  ensureExamQuestionOrder(selectedExamIndex.value)
 
   const maxIdx = (currentExam.value?.questions.length || 1) - 1
   if (currentQuestionIdx.value > maxIdx) {

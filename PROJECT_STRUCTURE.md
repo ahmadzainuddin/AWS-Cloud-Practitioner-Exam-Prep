@@ -50,7 +50,7 @@ The main application component.
 Responsibilities:
 
 - Load `public/practice-exams.json` through Vite's public asset path
-- Randomize question order after loading exam data
+- Create or reuse cookie-saved randomized question order per exam
 - Store selected exam and question state
 - Render the sidebar, stats, question card, options, and navigator
 - Track selected answers and submitted questions
@@ -178,7 +178,7 @@ public/practice-exams.json
         ↓
 src/App.vue fetch on mount
         ↓
-Randomize questions per exam
+Create or reuse cookie-saved question order
         ↓
 Vue reactive state
         ↓
