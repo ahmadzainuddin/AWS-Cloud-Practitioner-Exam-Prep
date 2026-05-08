@@ -1,18 +1,38 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const MAX_TEXT_LENGTH = 4000
+const ALLOWED_ORIGINS = new Set([
+  'https://ahmadzainuddin.github.io',
+  'https://aws-cloud-practitioner-exam-prep.pages.dev',
+])
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-function jsonResponse(payload, status = 200) {
+function getAllowedOrigin(request) {
+  const origin = request.headers.get('Origin')
+  return ALLOWED_ORIGINS.has(origin) ? origin : ''
+}
+
+function corsHeaders(origin) {
+  return origin
+    ? {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        Vary: 'Origin',
+      }
+    : {}
+}
+
+function jsonResponse(payload, status = 200, origin = '') {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: jsonHeaders,
+    headers: {
+      ...jsonHeaders,
+      ...corsHeaders(origin),
+    },
   })
 }
 
@@ -197,20 +217,25 @@ async function createExplanation(payload, env) {
 }
 
 export async function onRequestPost({ request, env }) {
+  const origin = getAllowedOrigin(request)
+  if (!origin) {
+    return jsonResponse({ error: 'Origin is not allowed.' }, 403)
+  }
+
   if (!env.AI_EXPLANATIONS) {
-    return jsonResponse({ error: 'AI_EXPLANATIONS R2 binding is not configured.' }, 500)
+    return jsonResponse({ error: 'AI_EXPLANATIONS R2 binding is not configured.' }, 500, origin)
   }
 
   let payload
   try {
     payload = await request.json()
   } catch {
-    return jsonResponse({ error: 'Invalid JSON payload.' }, 400)
+    return jsonResponse({ error: 'Invalid JSON payload.' }, 400, origin)
   }
 
   const validation = validatePayload(payload)
   if (validation.error) {
-    return jsonResponse({ error: validation.error }, 400)
+    return jsonResponse({ error: validation.error }, 400, origin)
   }
 
   const normalized = validation.normalized
@@ -234,7 +259,7 @@ export async function onRequestPost({ request, env }) {
       questionHash: cachedPayload.questionHash,
       createdAt: cachedPayload.createdAt,
       model: cachedPayload.model,
-    })
+    }, 200, origin)
   }
 
   try {
@@ -265,15 +290,20 @@ export async function onRequestPost({ request, env }) {
       questionHash,
       createdAt: responsePayload.createdAt,
       model: responsePayload.model,
-    })
+    }, 200, origin)
   } catch (error) {
-    return jsonResponse({ error: error.message || 'Unable to generate explanation.' }, 502)
+    return jsonResponse({ error: error.message || 'Unable to generate explanation.' }, 502, origin)
   }
 }
 
-export function onRequestOptions() {
+export function onRequestOptions({ request }) {
+  const origin = getAllowedOrigin(request)
+  if (!origin) {
+    return new Response(null, { status: 403 })
+  }
+
   return new Response(null, {
     status: 204,
-    headers: jsonHeaders,
+    headers: corsHeaders(origin),
   })
 }
