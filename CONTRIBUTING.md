@@ -16,22 +16,29 @@ npm install
 npm run dev
 ```
 
-3. Make the change.
+3. For Cloudflare Pages Function work, build and run the local Pages server:
 
-4. Validate the production build:
+```bash
+npm run build
+npm run pages:dev
+```
+
+4. Make the change.
+
+5. Validate the production build:
 
 ```bash
 npm run build
 ```
 
-5. Review the changed files:
+6. Review the changed files:
 
 ```bash
 git status --short
 git diff --stat
 ```
 
-6. Commit with a clear message.
+7. Commit with a clear message.
 
 ## Commit Messages
 
@@ -87,6 +94,15 @@ This file is the only maintained exam dataset. Do not add a duplicate root-level
 - Avoid adding backend dependencies unless there is a clear operational need.
 - Keep generated files out of Git.
 - Test narrow layout changes at desktop and mobile widths.
+
+## AI Explanation Contribution Rules
+
+- Never expose `OPENAI_API_KEY` in frontend code, `VITE_*` variables, screenshots, docs, or committed files.
+- Store the production key as a Cloudflare secret.
+- Keep AI explanation requests user-initiated after answer submission.
+- Cache explanation output by stable question content, not by randomized session position.
+- Keep generated explanations concise and exam-focused.
+- Test cache behavior locally with mock mode before publishing.
 
 ## Deployment
 

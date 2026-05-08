@@ -11,6 +11,7 @@ This document describes the repository layout and the role of each important fil
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── docs/
+├── functions/
 ├── LICENSE
 ├── PROJECT_STRUCTURE.md
 ├── README.md
@@ -19,7 +20,8 @@ This document describes the repository layout and the role of each important fil
 ├── package.json
 ├── public/
 ├── src/
-└── vite.config.js
+├── vite.config.js
+└── wrangler.toml
 ```
 
 ## Application Entry Points
@@ -54,6 +56,7 @@ Responsibilities:
 - Store selected exam and question state
 - Render the sidebar, stats, question card, options, and navigator
 - Track selected answers and submitted questions
+- Request AI explanations only after the user submits an answer and clicks the explanation button
 - Calculate correct, incorrect, score, and progress values
 - Persist progress to a browser cookie
 
@@ -64,6 +67,8 @@ Key state:
 - `currentQuestionIdx`
 - `answersByExam`
 - `submittedByExam`
+- `explanationsByQuestion`
+- `explanationStatusByQuestion`
 
 Key computed values:
 
@@ -107,6 +112,27 @@ This is the file used by the deployed GitHub Pages app.
 
 Dashboard screenshot used in `README.md`.
 
+## Cloudflare Functions
+
+### `functions/api/explain.js`
+
+Cloudflare Pages Function for on-demand AI explanations.
+
+Responsibilities:
+
+- Validate question explanation requests
+- Generate a stable hash from question text, options, and correct answer
+- Check the `AI_EXPLANATIONS` R2 bucket before calling OpenAI
+- Return cached explanations when available
+- Call the OpenAI Responses API only when no cached explanation exists
+- Store generated explanation JSON back into R2
+
+R2 object key format:
+
+```text
+explanations/{source_file}/question-{number}-{hash}.json
+```
+
 ## Configuration
 
 ### `package.json`
@@ -119,6 +145,7 @@ Available scripts:
 npm run dev
 npm run build
 npm run preview
+npm run pages:dev
 ```
 
 ### `package-lock.json`
@@ -136,6 +163,16 @@ base: '/AWS-Cloud-Practitioner-Exam-Prep/'
 ```
 
 This base path is required for GitHub Pages deployment under the repository URL.
+
+### `wrangler.toml`
+
+Cloudflare Pages and R2 configuration for local Pages Function testing and Cloudflare deployment metadata.
+
+Important binding:
+
+```text
+AI_EXPLANATIONS
+```
 
 ## Deployment Files
 
@@ -167,6 +204,9 @@ These directories are generated locally and should not be committed:
 ```text
 node_modules/
 dist/
+.dev.vars*
+.env*
+.wrangler/
 ```
 
 They are ignored by `.gitignore`.
@@ -185,6 +225,14 @@ Vue reactive state
 Question UI, stats, navigator
         ↓
 Cookie persistence
+        ↓
+User clicks AI Explanation after submission
+        ↓
+functions/api/explain.js
+        ↓
+Check Cloudflare R2 cache
+        ↓
+Return cached explanation or call OpenAI once
 ```
 
 ## Publishing Flow

@@ -8,6 +8,10 @@ The format follows a practical changelog style, with the newest changes listed f
 
 ### Added
 
+- Added on-demand AI explanation support after answer submission.
+- Added Cloudflare Pages Function endpoint at `/api/explain`.
+- Added Cloudflare R2 explanation cache so each question explanation can be generated once and reused.
+- Added local Cloudflare Pages dev script with mock AI mode.
 - Added `.gitignore` entries for generated build and dependency directories.
 - Added `package-lock.json` to make dependency installation reproducible across local and GitHub Actions builds.
 - Added dashboard screenshot under `docs/screenshots/`.
@@ -29,6 +33,8 @@ The format follows a practical changelog style, with the newest changes listed f
 
 ### Verified
 
+- Confirmed local AI explanation endpoint returns `cached:false` on first request and `cached:true` on repeated requests.
+- Confirmed the AI explanation UI appears only after answer submission.
 - Confirmed both JSON files are valid.
 - Confirmed the published dataset contains:
   - 12 exams

@@ -1,0 +1,7 @@
+name = "aws-cloud-practitioner-exam-prep"
+compatibility_date = "2026-05-08"
+pages_build_output_dir = "dist"
+
+[[r2_buckets]]
+binding = "AI_EXPLANATIONS"
+bucket_name = "aws-exam-ai-explanations"

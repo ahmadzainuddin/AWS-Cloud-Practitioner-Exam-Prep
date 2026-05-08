@@ -53,10 +53,6 @@
           <h2>{{ currentExam.title }}</h2>
           <p>Question {{ currentQuestionIdx + 1 }} of {{ currentExam.questions.length }}</p>
         </div>
-        <div class="header-actions">
-          <button class="chip" @click="prevQuestion" :disabled="currentQuestionIdx === 0">Prev</button>
-          <button class="chip" @click="nextQuestion" :disabled="currentQuestionIdx === currentExam.questions.length - 1">Next</button>
-        </div>
       </header>
 
       <section class="question-card">
@@ -77,10 +73,33 @@
         </div>
 
         <div class="qa-footer">
-          <button class="secondary" @click="submitCurrentQuestion" :disabled="isCurrentSubmitted || !hasCurrentAnswer">
-            {{ isCurrentSubmitted ? 'Submitted' : 'Submit' }}
-          </button>
-          <p class="answer" v-if="isCurrentSubmitted">Correct answer: {{ currentQuestion.answer.join(', ') }}</p>
+          <div class="answer-tools">
+            <button class="submit-button" @click="submitCurrentQuestion" :disabled="isCurrentSubmitted || !hasCurrentAnswer">
+              {{ isCurrentSubmitted ? 'Submitted' : 'Submit' }}
+            </button>
+            <p class="answer" v-if="isCurrentSubmitted">Correct answer: {{ currentQuestion.answer.join(', ') }}</p>
+            <button
+              class="ai-button"
+              v-if="isCurrentSubmitted"
+              @click="fetchAiExplanation"
+              :disabled="isCurrentExplanationLoading"
+            >
+              {{ isCurrentExplanationLoading ? 'Loading AI...' : 'AI Explanation' }}
+            </button>
+          </div>
+          <div class="question-actions">
+            <button class="chip" @click="prevQuestion" :disabled="currentQuestionIdx === 0">Prev</button>
+            <button class="chip" @click="nextQuestion" :disabled="currentQuestionIdx === currentExam.questions.length - 1">Next</button>
+          </div>
+        </div>
+
+        <div class="ai-explanation" v-if="isCurrentSubmitted && (currentExplanation || currentExplanationError)">
+          <div class="ai-explanation-header">
+            <strong>AI Explanation</strong>
+            <span v-if="currentExplanationMeta">{{ currentExplanationMeta }}</span>
+          </div>
+          <p v-if="currentExplanation">{{ currentExplanation }}</p>
+          <p class="ai-error" v-else>{{ currentExplanationError }}</p>
         </div>
       </section>
 
@@ -107,6 +126,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 const COOKIE_KEY = 'aws_mcq_dashboard_state'
+const CLOUDFLARE_API_ORIGIN = 'https://aws-cloud-practitioner-exam-prep.pages.dev'
 
 const exams = ref([])
 const rawExams = ref([])
@@ -115,11 +135,17 @@ const currentQuestionIdx = ref(0)
 const answersByExam = ref({})
 const submittedByExam = ref({})
 const questionOrderByExam = ref({})
+const explanationsByQuestion = ref({})
+const explanationStatusByQuestion = ref({})
 
 const currentExam = computed(() => exams.value[selectedExamIndex.value])
 const currentQuestion = computed(() => currentExam.value?.questions[currentQuestionIdx.value])
 
 const currentExamKey = computed(() => currentExam.value?.source_file || '')
+const currentQuestionKey = computed(() => {
+  if (!currentExamKey.value || !currentQuestion.value) return ''
+  return `${currentExamKey.value}:${currentQuestion.value.number}`
+})
 const selectedAnswers = computed(() => {
   if (!currentExamKey.value) return {}
   return answersByExam.value[currentExamKey.value] || {}
@@ -132,6 +158,23 @@ const isCurrentSubmitted = computed(() => Boolean(submittedMap.value[currentQues
 const hasCurrentAnswer = computed(() => {
   if (!currentQuestion.value) return false
   return (selectedAnswers.value[currentQuestion.value.number] || []).length > 0
+})
+const currentExplanationState = computed(() => {
+  if (!currentQuestionKey.value) return null
+  return explanationsByQuestion.value[currentQuestionKey.value] || null
+})
+const currentExplanation = computed(() => currentExplanationState.value?.explanation || '')
+const currentExplanationMeta = computed(() => {
+  if (!currentExplanationState.value) return ''
+  return currentExplanationState.value.cached ? 'Cached' : 'Generated'
+})
+const currentExplanationError = computed(() => {
+  if (!currentQuestionKey.value) return ''
+  return explanationStatusByQuestion.value[currentQuestionKey.value]?.error || ''
+})
+const isCurrentExplanationLoading = computed(() => {
+  if (!currentQuestionKey.value) return false
+  return Boolean(explanationStatusByQuestion.value[currentQuestionKey.value]?.loading)
 })
 
 const answeredCount = computed(() => {
@@ -168,6 +211,13 @@ const progressPercent = computed(() => {
   if (!currentExam.value) return 0
   return Math.round((answeredCount.value / currentExam.value.questions.length) * 100)
 })
+
+function getAiExplanationApiUrl() {
+  if (window.location.hostname.endsWith('github.io')) {
+    return `${CLOUDFLARE_API_ORIGIN}/api/explain`
+  }
+  return '/api/explain'
+}
 
 function getCookie(name) {
   const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -251,6 +301,12 @@ function ensureExamQuestionOrder(examIndex, forceNewOrder = false) {
   exams.value = exams.value.map((item, idx) => (idx === examIndex ? orderedExam : item))
 }
 
+function hasSavedAnswers(examKey) {
+  const answers = answersByExam.value[examKey]
+  if (!answers) return false
+  return Object.values(answers).some((value) => Array.isArray(value) && value.length > 0)
+}
+
 function toggleAnswer(key) {
   if (isCurrentSubmitted.value) return
   const qNum = currentQuestion.value.number
@@ -327,6 +383,60 @@ function submitCurrentQuestion() {
   }
 }
 
+async function fetchAiExplanation() {
+  if (!currentExam.value || !currentQuestion.value || !isCurrentSubmitted.value || !currentQuestionKey.value) return
+  if (currentExplanation.value || isCurrentExplanationLoading.value) return
+
+  const questionKey = currentQuestionKey.value
+  explanationStatusByQuestion.value = {
+    ...explanationStatusByQuestion.value,
+    [questionKey]: { loading: true, error: '' },
+  }
+
+  try {
+    const response = await fetch(getAiExplanationApiUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        examTitle: currentExam.value.title,
+        sourceFile: currentExam.value.source_file,
+        questionNumber: currentQuestion.value.number,
+        question: currentQuestion.value.question,
+        options: currentQuestion.value.options,
+        selectedAnswer: selectedAnswers.value[currentQuestion.value.number] || [],
+        correctAnswer: currentQuestion.value.answer,
+      }),
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || 'Unable to load AI explanation.')
+    }
+
+    explanationsByQuestion.value = {
+      ...explanationsByQuestion.value,
+      [questionKey]: {
+        explanation: data.explanation,
+        cached: Boolean(data.cached),
+        model: data.model,
+        createdAt: data.createdAt,
+      },
+    }
+    explanationStatusByQuestion.value = {
+      ...explanationStatusByQuestion.value,
+      [questionKey]: { loading: false, error: '' },
+    }
+  } catch (error) {
+    explanationStatusByQuestion.value = {
+      ...explanationStatusByQuestion.value,
+      [questionKey]: {
+        loading: false,
+        error: error.message || 'Unable to load AI explanation.',
+      },
+    }
+  }
+}
+
 function isQuestionSubmitted(qNum) {
   return Boolean(submittedMap.value[qNum])
 }
@@ -360,7 +470,8 @@ watch([selectedExamIndex, currentQuestionIdx, answersByExam, submittedByExam, qu
 
 watch(selectedExamIndex, () => {
   currentQuestionIdx.value = 0
-  ensureExamQuestionOrder(selectedExamIndex.value)
+  const examKey = rawExams.value[selectedExamIndex.value]?.source_file
+  ensureExamQuestionOrder(selectedExamIndex.value, examKey ? !hasSavedAnswers(examKey) : false)
 })
 
 onMounted(async () => {
@@ -374,7 +485,8 @@ onMounted(async () => {
     selectedExamIndex.value = 0
   }
 
-  ensureExamQuestionOrder(selectedExamIndex.value)
+  const examKey = rawExams.value[selectedExamIndex.value]?.source_file
+  ensureExamQuestionOrder(selectedExamIndex.value, examKey ? !hasSavedAnswers(examKey) : false)
 
   const maxIdx = (currentExam.value?.questions.length || 1) - 1
   if (currentQuestionIdx.value > maxIdx) {

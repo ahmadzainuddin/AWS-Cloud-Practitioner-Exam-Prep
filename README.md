@@ -18,7 +18,7 @@
 
 AWS Cloud Practitioner Exam Prep is a Vue-based practice exam dashboard for AWS Cloud Practitioner revision. The application serves multiple-choice exams from static JSON, tracks progress in the browser, and publishes automatically to GitHub Pages.
 
-The dashboard is designed for focused exam practice. Users can select an exam, move between questions, submit answers, review the correct answer, and track score and completion progress without needing a backend service.
+The dashboard is designed for focused exam practice. Users can select an exam, move between questions, submit answers, review the correct answer, request an AI explanation on demand, and track score and completion progress.
 
 ## Screenshot
 
@@ -46,6 +46,8 @@ Current dataset:
 - Question navigation with previous and next controls
 - Single-answer and multi-answer question support
 - Correct and incorrect answer highlighting after submission
+- On-demand AI explanation button after answer submission
+- Cloudflare R2 explanation cache so each question is generated once and reused
 - Per-exam score, answered count, correct count, and incorrect count
 - Question navigator showing answered, correct, and incorrect status
 - Cookie-based progress persistence
@@ -57,6 +59,9 @@ Current dataset:
 - Vite
 - JavaScript
 - CSS
+- Cloudflare Pages Functions
+- Cloudflare R2
+- OpenAI Responses API
 - GitHub Actions
 - GitHub Pages
 
@@ -84,6 +89,51 @@ Preview the production build:
 
 ```bash
 npm run preview
+```
+
+Run the Cloudflare Pages local server with mock AI and local R2:
+
+```bash
+npm run build
+npm run pages:dev
+```
+
+The local Pages server runs the Vue build and `/api/explain` function together. Mock mode is enabled by the `pages:dev` script so local testing does not call OpenAI.
+
+## AI Explanation
+
+AI explanation is only requested after a user submits an answer and clicks the `AI Explanation` button. The frontend sends the current question, options, and correct answer to:
+
+```text
+/api/explain
+```
+
+The Cloudflare Pages Function checks R2 first. If an explanation JSON already exists for the question hash, it returns the cached explanation. If not, it calls the OpenAI Responses API once, stores the generated explanation in R2, and returns it to the user.
+
+R2 binding:
+
+```text
+AI_EXPLANATIONS
+```
+
+Required Cloudflare secret:
+
+```text
+OPENAI_API_KEY
+```
+
+Optional Cloudflare variable:
+
+```text
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+The API key must be configured as a Cloudflare secret and must never be committed to GitHub or exposed through `VITE_*` frontend variables.
+
+GitHub Pages builds can still use the AI feature by calling the Cloudflare Pages API fallback:
+
+```text
+https://aws-cloud-practitioner-exam-prep.pages.dev/api/explain
 ```
 
 ## Data Source
@@ -133,7 +183,7 @@ Progress is stored in a browser cookie named:
 aws_mcq_dashboard_state
 ```
 
-The cookie stores selected exam index, current question index, selected answers, submitted questions, and randomized question order per exam. It is scoped to the site path and expires after one year.
+The cookie stores selected exam index, current question index, selected answers, submitted questions, and randomized question order per exam. It is scoped to the site path and expires after one year. AI explanations are not stored in the browser cookie; shared explanations are cached in Cloudflare R2.
 
 When an exam is opened for the first time and no saved question order exists, the app reads questions from `public/practice-exams.json`, randomizes them, and saves the randomized order in the cookie. If the order already exists, the app reuses it instead of randomizing again. Resetting an exam clears that exam's saved order and creates a fresh randomized sequence.
 
@@ -159,8 +209,10 @@ The workflow runs on every push to `main` and performs:
 ## Maintenance Notes
 
 - Do not commit `node_modules/` or `dist/`; both are ignored.
+- Do not commit `.dev.vars`, `.env`, or local Wrangler state.
 - Keep `package-lock.json` committed for reproducible dependency installs.
 - Validate data changes with `npm run build` before publishing.
+- Validate AI explanation changes locally with `npm run pages:dev`.
 - If new exam data is imported from Markdown, verify that numbered lists and `Correct Answer:` blocks are parsed correctly before replacing JSON.
 
 ## Author
