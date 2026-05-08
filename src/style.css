@@ -326,6 +326,18 @@ button.secondary:disabled {
   margin-top: 10px;
 }
 
+.ai-explanation-body ul,
+.ai-explanation-body ol {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.ai-explanation-body li {
+  margin-top: 6px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
 .ai-explanation-body strong {
   color: var(--text-1);
   font-weight: 800;

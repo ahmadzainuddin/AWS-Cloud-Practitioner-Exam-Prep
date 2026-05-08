@@ -55,6 +55,35 @@ function formatExplanationHtml(explanation) {
     .join('')
 }
 
+function stripHtml(value) {
+  return String(value || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/(?:ul|ol)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function sanitizeExplanationHtml(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+
+  const escapedCodeFences = text
+    .replace(/^```html\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim()
+
+  return escapedCodeFences
+    .replace(/<\s*(\/?)\s*(p|strong|em|ul|ol|li|br)\s*[^>]*>/gi, '<$1$2>')
+    .replace(/<(?!\/?(?:p|strong|em|ul|ol|li|br)>)[^>]+>/gi, '')
+    .replace(/<(p|strong|em|ul|ol|li|br)>/gi, (match) => match.toLowerCase())
+    .replace(/<\/(p|strong|em|ul|ol|li)>/gi, (match) => match.toLowerCase())
+    .trim()
+}
+
 async function sha256Hex(value) {
   const data = new TextEncoder().encode(value)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
@@ -113,15 +142,18 @@ function buildPrompt(payload) {
     '',
     `Correct answer: ${payload.correctAnswer.join(', ')}`,
     '',
-    'Write a concise AWS Cloud Practitioner explanation for this answer.',
-    'Explain why the correct answer is right and briefly why the other options are less suitable.',
-    'Do not invent facts outside the question context. Keep it under 170 words.',
+    'Return clean HTML only. Do not use Markdown. Do not wrap the output in code fences.',
+    'Use only these tags: <p>, <strong>, <ul>, <li>, and <em>.',
+    'Format professionally with one short opening paragraph and one short bullet list for why the other options are less suitable.',
+    'Highlight the correct answer letter, correct service name, and important AWS service names with <strong>.',
+    'Do not invent facts outside the question context. Keep it concise and under 190 words.',
   ].join('\n')
 }
 
 async function createExplanation(payload, env) {
   if (env.AI_EXPLANATION_MOCK === 'true') {
-    return `The correct answer is ${payload.correctAnswer.join(', ')}. This explanation is generated in local mock mode so the UI and R2 cache flow can be tested without calling OpenAI.`
+    const answer = payload.correctAnswer.join(', ')
+    return `<p>The correct answer is <strong>${answer}</strong>. This explanation is generated in local mock mode so the UI and R2 cache flow can be tested without calling OpenAI.</p><ul><li><strong>Mock mode</strong> keeps local testing fast and avoids API cost.</li></ul>`
   }
 
   if (!env.OPENAI_API_KEY) {
@@ -136,7 +168,7 @@ async function createExplanation(payload, env) {
     },
     body: JSON.stringify({
       model: env.OPENAI_MODEL || DEFAULT_MODEL,
-      instructions: 'You are an AWS Cloud Practitioner tutor. Answer clearly and directly for exam revision.',
+      instructions: 'You are an AWS Cloud Practitioner tutor. Produce clean, safe, concise HTML for exam revision. Never output scripts, styles, links, tables, images, or attributes.',
       input: buildPrompt(payload),
       max_output_tokens: 320,
       store: false,
@@ -193,8 +225,8 @@ export async function onRequestPost({ request, env }) {
   const cached = await env.AI_EXPLANATIONS.get(objectKey)
   if (cached) {
     const cachedPayload = await cached.json()
-    const explanation = cachedPayload.explanation || ''
-    const explanationHtml = cachedPayload.explanationHtml || formatExplanationHtml(explanation)
+    const explanation = cachedPayload.explanation || stripHtml(cachedPayload.explanationHtml || '')
+    const explanationHtml = sanitizeExplanationHtml(cachedPayload.explanationHtml) || formatExplanationHtml(explanation)
     return jsonResponse({
       cached: true,
       explanation,
@@ -206,8 +238,9 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    const explanation = await createExplanation(normalized, env)
-    const explanationHtml = formatExplanationHtml(explanation)
+    const aiOutput = await createExplanation(normalized, env)
+    const explanationHtml = sanitizeExplanationHtml(aiOutput) || formatExplanationHtml(aiOutput)
+    const explanation = stripHtml(explanationHtml) || stripHtml(aiOutput)
     const responsePayload = {
       examTitle: normalized.examTitle,
       sourceFile: normalized.sourceFile,
