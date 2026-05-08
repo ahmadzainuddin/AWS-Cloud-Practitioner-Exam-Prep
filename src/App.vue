@@ -98,7 +98,8 @@
             <strong>AI Explanation</strong>
             <span v-if="currentExplanationMeta">{{ currentExplanationMeta }}</span>
           </div>
-          <p v-if="currentExplanation">{{ currentExplanation }}</p>
+          <div class="ai-explanation-body" v-if="currentExplanationHtml" v-html="currentExplanationHtml"></div>
+          <p v-else-if="currentExplanation">{{ currentExplanation }}</p>
           <p class="ai-error" v-else>{{ currentExplanationError }}</p>
         </div>
       </section>
@@ -164,6 +165,7 @@ const currentExplanationState = computed(() => {
   return explanationsByQuestion.value[currentQuestionKey.value] || null
 })
 const currentExplanation = computed(() => currentExplanationState.value?.explanation || '')
+const currentExplanationHtml = computed(() => currentExplanationState.value?.explanationHtml || '')
 const currentExplanationMeta = computed(() => {
   if (!currentExplanationState.value) return ''
   return currentExplanationState.value.cached ? 'Cached' : 'Generated'
@@ -417,6 +419,7 @@ async function fetchAiExplanation() {
       ...explanationsByQuestion.value,
       [questionKey]: {
         explanation: data.explanation,
+        explanationHtml: data.explanationHtml,
         cached: Boolean(data.cached),
         model: data.model,
         createdAt: data.createdAt,

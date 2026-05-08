@@ -311,10 +311,24 @@ button.secondary:disabled {
   font-weight: 700;
 }
 
-.ai-explanation p {
+.ai-explanation p,
+.ai-explanation-body p {
   margin: 0;
   color: var(--text-2);
   line-height: 1.55;
+}
+
+.ai-explanation-body {
+  color: var(--text-2);
+}
+
+.ai-explanation-body p + p {
+  margin-top: 10px;
+}
+
+.ai-explanation-body strong {
+  color: var(--text-1);
+  font-weight: 800;
 }
 
 .ai-explanation .ai-error {

@@ -29,6 +29,32 @@ function sanitizePathSegment(value) {
     .replace(/^-+|-+$/g, '') || 'unknown'
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function formatInlineHtml(value) {
+  return escapeHtml(value).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+}
+
+function formatExplanationHtml(explanation) {
+  const paragraphs = String(explanation || '')
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+
+  if (!paragraphs.length) return ''
+
+  return paragraphs
+    .map((paragraph) => `<p>${formatInlineHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+
 async function sha256Hex(value) {
   const data = new TextEncoder().encode(value)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
@@ -167,9 +193,12 @@ export async function onRequestPost({ request, env }) {
   const cached = await env.AI_EXPLANATIONS.get(objectKey)
   if (cached) {
     const cachedPayload = await cached.json()
+    const explanation = cachedPayload.explanation || ''
+    const explanationHtml = cachedPayload.explanationHtml || formatExplanationHtml(explanation)
     return jsonResponse({
       cached: true,
-      explanation: cachedPayload.explanation,
+      explanation,
+      explanationHtml,
       questionHash: cachedPayload.questionHash,
       createdAt: cachedPayload.createdAt,
       model: cachedPayload.model,
@@ -178,6 +207,7 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const explanation = await createExplanation(normalized, env)
+    const explanationHtml = formatExplanationHtml(explanation)
     const responsePayload = {
       examTitle: normalized.examTitle,
       sourceFile: normalized.sourceFile,
@@ -186,6 +216,7 @@ export async function onRequestPost({ request, env }) {
       model: env.AI_EXPLANATION_MOCK === 'true' ? 'mock' : env.OPENAI_MODEL || DEFAULT_MODEL,
       createdAt: new Date().toISOString(),
       explanation,
+      explanationHtml,
     }
 
     await env.AI_EXPLANATIONS.put(objectKey, JSON.stringify(responsePayload, null, 2), {
@@ -197,6 +228,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({
       cached: false,
       explanation,
+      explanationHtml,
       questionHash,
       createdAt: responsePayload.createdAt,
       model: responsePayload.model,
