@@ -372,6 +372,8 @@ button.secondary:disabled {
 .nav-item.active {
   background: var(--primary);
   color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(11, 95, 255, 0.18);
 }
 
 .nav-item.done {
@@ -386,6 +388,24 @@ button.secondary:disabled {
   background: #fdecec;
   color: #8f1f1f;
   border: 1px solid #d14343;
+}
+
+.nav-item.right.active {
+  background: #e8f7ef;
+  color: #0f5d32;
+  border-color: var(--primary);
+  box-shadow:
+    inset 0 0 0 2px var(--primary),
+    0 0 0 3px rgba(11, 95, 255, 0.16);
+}
+
+.nav-item.wrong.active {
+  background: #fdecec;
+  color: #8f1f1f;
+  border-color: var(--primary);
+  box-shadow:
+    inset 0 0 0 2px var(--primary),
+    0 0 0 3px rgba(11, 95, 255, 0.16);
 }
 
 .nav-item.right::after,
