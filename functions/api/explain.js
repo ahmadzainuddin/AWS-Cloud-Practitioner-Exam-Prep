@@ -1,10 +1,12 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const PROMPT_VERSION = 5
 const MAX_TEXT_LENGTH = 4000
+const MAX_BODY_BYTES = 32000
 const ALLOWED_ORIGINS = new Set([
   'https://ahmadzainuddin.github.io',
   'https://aws-cloud-practitioner-exam-prep.pages.dev',
 ])
+let examDatasetPromise
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -157,6 +159,74 @@ function normalizeAnswerIds(answerIds) {
     : []
 }
 
+function canonicalQuestionPayload(payload) {
+  return JSON.stringify({
+    question: truncateText(payload.question),
+    options: [...payload.options]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((option) => ({
+        id: option.id,
+        text: truncateText(option.text, 1200),
+      })),
+    correctAnswerIds: [...payload.correctAnswerIds].sort(),
+  })
+}
+
+async function loadExamDataset(request, env) {
+  if (!examDatasetPromise) {
+    examDatasetPromise = (async () => {
+      const assetUrl = new URL('/practice-exams-v2.json', request.url)
+      const response = env.ASSETS
+        ? await env.ASSETS.fetch(assetUrl.toString())
+        : await fetch(assetUrl)
+
+      if (!response.ok) {
+        throw new Error('Unable to load exam dataset.')
+      }
+
+      const exams = await response.json()
+      const questions = new Map()
+
+      for (const exam of Array.isArray(exams) ? exams : []) {
+        const sourceFile = sanitizePathSegment(exam.source_file)
+        for (const question of Array.isArray(exam.questions) ? exam.questions : []) {
+          const normalizedQuestion = {
+            question: question.question,
+            options: normalizeOptions(question.options),
+            correctAnswerIds: normalizeAnswerIds(question.answer),
+          }
+          questions.set(
+            `${sourceFile}:${Number(question.number)}`,
+            canonicalQuestionPayload(normalizedQuestion),
+          )
+        }
+      }
+
+      return questions
+    })()
+  }
+
+  return examDatasetPromise
+}
+
+async function validateAgainstExamDataset(normalized, request, env) {
+  if (normalized.schemaVersion < 2) {
+    return 'Only schema v2 exam payloads are supported.'
+  }
+
+  const questions = await loadExamDataset(request, env)
+  const expected = questions.get(`${normalized.sourceFile}:${normalized.questionNumber}`)
+  if (!expected) {
+    return 'Question is not in the approved exam dataset.'
+  }
+
+  if (expected !== canonicalQuestionPayload(normalized)) {
+    return 'Question payload does not match the approved exam dataset.'
+  }
+
+  return ''
+}
+
 function validatePayload(payload) {
   const options = normalizeOptions(payload.options)
   const correctAnswerIds = normalizeAnswerIds(payload.correctAnswerIds)
@@ -291,6 +361,11 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: 'Origin is not allowed.' }, 403)
   }
 
+  const contentLength = Number(request.headers.get('Content-Length') || 0)
+  if (contentLength > MAX_BODY_BYTES) {
+    return jsonResponse({ error: 'Request body is too large.' }, 413, origin)
+  }
+
   if (!env.AI_EXPLANATIONS) {
     return jsonResponse({ error: 'AI_EXPLANATIONS R2 binding is not configured.' }, 500, origin)
   }
@@ -308,6 +383,15 @@ export async function onRequestPost({ request, env }) {
   }
 
   const normalized = validation.normalized
+  try {
+    const datasetError = await validateAgainstExamDataset(normalized, request, env)
+    if (datasetError) {
+      return jsonResponse({ error: datasetError }, 403, origin)
+    }
+  } catch (error) {
+    return jsonResponse({ error: error.message || 'Unable to validate exam dataset.' }, 500, origin)
+  }
+
   const hashInput = JSON.stringify({
     schemaVersion: normalized.schemaVersion,
     promptVersion: PROMPT_VERSION,
