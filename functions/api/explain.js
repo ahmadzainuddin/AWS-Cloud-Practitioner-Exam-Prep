@@ -1,5 +1,6 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini'
 const PROMPT_VERSION = 5
+const API_VERSION = 'dataset-guard-v1'
 const MAX_TEXT_LENGTH = 4000
 const MAX_BODY_BYTES = 32000
 const ALLOWED_ORIGINS = new Set([
@@ -44,6 +45,7 @@ function jsonResponse(payload, status = 200, origin = '') {
     status,
     headers: {
       ...jsonHeaders,
+      'X-API-Version': API_VERSION,
       ...corsHeaders(origin),
     },
   })
