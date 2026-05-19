@@ -110,13 +110,13 @@ AI explanation is only requested after a user submits an answer and clicks the `
 
 The Cloudflare Pages Function checks R2 first. If an explanation JSON already exists for the question hash, it returns the cached explanation. If not, it calls the OpenAI Responses API once, stores the generated explanation in R2, and returns it to the user.
 
-Schema v2 explanation objects are stored under:
+Structured explanation objects are stored under:
 
 ```text
-explanations/v3/{source_file}/question-{number}-{hash}.json
+explanations/v4/{source_file}/question-{number}-{hash}.json
 ```
 
-The current prompt writes new explanations under `explanations/v3/...` so older cached explanations that used looser formatting rules are not reused. The older `explanations/{source_file}/...` and `explanations/v2/...` caches remain in R2 for previous payloads. The frontend sends stable option IDs for cache integrity and displayed A-E letters for the AI prompt, so the explanation matches the shuffled labels shown to the user.
+The current prompt writes ID-based structured explanations under `explanations/v4/...`. The hash ignores shuffled A-E order, so one cached explanation can be reused across different option rotations. The older `explanations/{source_file}/...`, `explanations/v2/...`, and `explanations/v3/...` caches remain in R2 for previous payload formats.
 
 R2 binding:
 

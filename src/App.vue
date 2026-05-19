@@ -147,8 +147,7 @@ const currentQuestion = computed(() => currentExam.value?.questions[currentQuest
 const currentExamKey = computed(() => currentExam.value?.source_file || '')
 const currentQuestionKey = computed(() => {
   if (!currentExamKey.value || !currentQuestion.value) return ''
-  const optionOrderKey = currentQuestion.value.options.map((option) => option.id).join('|')
-  return `${currentExamKey.value}:${currentQuestion.value.number}:${optionOrderKey}`
+  return `${currentExamKey.value}:${currentQuestion.value.number}`
 })
 const selectedAnswers = computed(() => {
   if (!currentExamKey.value) return {}
@@ -167,8 +166,13 @@ const currentExplanationState = computed(() => {
   if (!currentQuestionKey.value) return null
   return explanationsByQuestion.value[currentQuestionKey.value] || null
 })
-const currentExplanation = computed(() => currentExplanationState.value?.explanation || '')
-const currentExplanationHtml = computed(() => currentExplanationState.value?.explanationHtml || '')
+const currentExplanation = computed(() => currentExplanationState.value?.structuredExplanation?.summary || currentExplanationState.value?.explanation || '')
+const currentExplanationHtml = computed(() => {
+  if (!currentQuestion.value || !currentExplanationState.value) return ''
+  return renderStructuredExplanation(currentQuestion.value, currentExplanationState.value.structuredExplanation)
+    || currentExplanationState.value.explanationHtml
+    || ''
+})
 const currentExplanationMeta = computed(() => {
   if (!currentExplanationState.value) return ''
   return currentExplanationState.value.cached ? 'Cached' : 'Generated'
@@ -416,9 +420,34 @@ function getDisplayAnswers(question, answerIds) {
 function getAiOptions(question) {
   return question.options.map((option) => ({
     id: option.id,
-    key: option.displayKey,
     text: option.text,
   }))
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderStructuredExplanation(question, structuredExplanation) {
+  if (!structuredExplanation || typeof structuredExplanation !== 'object') return ''
+  const summary = escapeHtml(structuredExplanation.summary)
+  const optionExplanations = structuredExplanation.optionExplanations || {}
+  const items = question.options
+    .map((option) => {
+      const reason = optionExplanations[option.id]
+      if (!reason) return ''
+      return `<li><strong>${escapeHtml(option.displayKey)}.</strong> ${escapeHtml(reason)}</li>`
+    })
+    .filter(Boolean)
+    .join('')
+
+  if (!summary && !items) return ''
+  return `${summary ? `<p>${summary}</p>` : ''}${items ? `<ul>${items}</ul>` : ''}`
 }
 
 function navClass(idx, qNum) {
@@ -486,11 +515,6 @@ async function fetchAiExplanation() {
         questionNumber: currentQuestion.value.number,
         question: currentQuestion.value.question,
         options: getAiOptions(currentQuestion.value),
-        selectedAnswer: getDisplayAnswers(
-          currentQuestion.value,
-          selectedAnswers.value[currentQuestion.value.number] || [],
-        ),
-        correctAnswer: getDisplayAnswers(currentQuestion.value, currentQuestion.value.answer),
         selectedAnswerIds: selectedAnswers.value[currentQuestion.value.number] || [],
         correctAnswerIds: currentQuestion.value.answer,
       }),
@@ -504,6 +528,7 @@ async function fetchAiExplanation() {
     explanationsByQuestion.value = {
       ...explanationsByQuestion.value,
       [questionKey]: {
+        structuredExplanation: data.structuredExplanation,
         explanation: data.explanation,
         explanationHtml: data.explanationHtml,
         cached: Boolean(data.cached),

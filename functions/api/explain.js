@@ -1,5 +1,5 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini'
-const PROMPT_VERSION = 3
+const PROMPT_VERSION = 4
 const MAX_TEXT_LENGTH = 4000
 const ALLOWED_ORIGINS = new Set([
   'https://ahmadzainuddin.github.io',
@@ -105,6 +105,23 @@ function sanitizeExplanationHtml(value) {
     .trim()
 }
 
+function sanitizeStructuredExplanation(value, options) {
+  const payload = value && typeof value === 'object' ? value : {}
+  const optionIds = new Set(options.map((option) => option.id))
+  const optionExplanations = payload.optionExplanations && typeof payload.optionExplanations === 'object'
+    ? payload.optionExplanations
+    : {}
+
+  return {
+    summary: truncateText(payload.summary, 900),
+    optionExplanations: Object.fromEntries(
+      Object.entries(optionExplanations)
+        .filter(([optionId, explanation]) => optionIds.has(optionId) && explanation)
+        .map(([optionId, explanation]) => [optionId, truncateText(explanation, 500)]),
+    ),
+  }
+}
+
 async function sha256Hex(value) {
   const data = new TextEncoder().encode(value)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
@@ -116,10 +133,10 @@ async function sha256Hex(value) {
 function normalizeOptions(options) {
   if (!Array.isArray(options)) return []
   return options
-    .filter((option) => option && option.key && option.text)
+    .filter((option) => option && (option.id || option.key) && option.text)
     .map((option) => ({
       id: option.id ? String(option.id).trim().slice(0, 120) : '',
-      key: String(option.key).trim().slice(0, 8),
+      key: option.key ? String(option.key).trim().slice(0, 8) : '',
       text: truncateText(option.text, 1200),
     }))
 }
@@ -132,12 +149,6 @@ function normalizeAnswerIds(answerIds) {
 
 function validatePayload(payload) {
   const options = normalizeOptions(payload.options)
-  const correctAnswer = Array.isArray(payload.correctAnswer)
-    ? payload.correctAnswer.map((answer) => String(answer).trim()).filter(Boolean)
-    : []
-  const selectedAnswer = Array.isArray(payload.selectedAnswer)
-    ? payload.selectedAnswer.map((answer) => String(answer).trim()).filter(Boolean)
-    : []
   const correctAnswerIds = normalizeAnswerIds(payload.correctAnswerIds)
   const selectedAnswerIds = normalizeAnswerIds(payload.selectedAnswerIds)
 
@@ -148,8 +159,6 @@ function validatePayload(payload) {
     questionNumber: Number(payload.questionNumber),
     question: truncateText(payload.question),
     options,
-    selectedAnswer,
-    correctAnswer,
     selectedAnswerIds,
     correctAnswerIds,
   }
@@ -158,7 +167,7 @@ function validatePayload(payload) {
     return { error: 'Missing exam title, question number, or question text.' }
   }
 
-  if (normalized.options.length < 2 || normalized.correctAnswer.length < 1) {
+  if (normalized.options.length < 2 || normalized.correctAnswerIds.length < 1) {
     return { error: 'Missing answer options or correct answer.' }
   }
 
@@ -166,9 +175,6 @@ function validatePayload(payload) {
     const optionIds = new Set(normalized.options.map((option) => option.id).filter(Boolean))
     if (optionIds.size !== normalized.options.length) {
       return { error: 'Schema v2 payload requires every option to have a unique ID.' }
-    }
-    if (normalized.correctAnswerIds.length !== normalized.correctAnswer.length) {
-      return { error: 'Schema v2 payload requires matching correct answer IDs.' }
     }
     if (!normalized.correctAnswerIds.every((answerId) => optionIds.has(answerId))) {
       return { error: 'Schema v2 correct answer ID does not match any option.' }
@@ -179,37 +185,52 @@ function validatePayload(payload) {
 }
 
 function buildPrompt(payload) {
-  const optionsText = payload.options
-    .map((option) => `${option.key}. ${option.text}`)
+  const optionsText = [...payload.options]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((option) => `- optionId: ${option.id}\n  text: ${option.text}`)
     .join('\n')
 
   return [
     `Exam: ${payload.examTitle}`,
     `Question ${payload.questionNumber}: ${payload.question}`,
     '',
-    'Options:',
+    'Options by stable ID:',
     optionsText,
     '',
-    `Correct answer: ${payload.correctAnswer.join(', ')}`,
-    payload.selectedAnswer.length ? `Selected answer: ${payload.selectedAnswer.join(', ')}` : '',
+    `Correct answer IDs: ${payload.correctAnswerIds.join(', ')}`,
     '',
-    'Use the displayed option letters exactly as provided above. Do not refer to internal option IDs.',
-    'The answer data may come from shuffled schema v2 options, so the displayed letters are the only letters users see.',
-    'Return clean HTML only. Do not use Markdown. Do not wrap the output in code fences.',
-    'Use only these tags: <p>, <strong>, <ul>, <li>, and <em>.',
-    'Write one short opening paragraph that states the correct answer letters exactly.',
-    'Then write one <ul> with exactly one <li> for every displayed option letter, in option order.',
-    'Each <li> must start with <strong>{letter}.</strong> and briefly say whether that option is correct or incorrect for this question.',
-    'For multi-answer questions, explain every correct option and every incorrect option.',
-    'Highlight the correct answer letters, correct service names, and important AWS service names with <strong>.',
-    'Do not invent facts outside the question context. Keep it concise and under 260 words.',
+    'Return strict JSON only. Do not wrap the output in code fences.',
+    'Use this exact JSON shape:',
+    '{"summary":"short summary without option letters","optionExplanations":{"option_id":"brief reason for that option"}}',
+    'The optionExplanations object must include exactly one entry for every provided optionId.',
+    'Do not use A-E letters because the frontend randomizes display labels.',
+    'For each option reason, state whether it is correct or incorrect for this question.',
+    'Do not invent facts outside the question context. Keep each reason concise.',
   ].join('\n')
+}
+
+function parseAiJson(value) {
+  const text = String(value || '')
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim()
+  return JSON.parse(text)
 }
 
 async function createExplanation(payload, env) {
   if (env.AI_EXPLANATION_MOCK === 'true') {
-    const answer = payload.correctAnswer.join(', ')
-    return `<p>The correct answer is <strong>${answer}</strong>. This explanation is generated in local mock mode so the UI and R2 cache flow can be tested without calling OpenAI.</p><ul><li><strong>Mock mode</strong> keeps local testing fast and avoids API cost.</li></ul>`
+    return sanitizeStructuredExplanation({
+      summary: 'This is a mock explanation generated without calling OpenAI.',
+      optionExplanations: Object.fromEntries(
+        payload.options.map((option) => [
+          option.id,
+          payload.correctAnswerIds.includes(option.id)
+            ? 'Correct option in the mock response.'
+            : 'Incorrect option in the mock response.',
+        ]),
+      ),
+    }, payload.options)
   }
 
   if (!env.OPENAI_API_KEY) {
@@ -224,9 +245,9 @@ async function createExplanation(payload, env) {
     },
     body: JSON.stringify({
       model: env.OPENAI_MODEL || DEFAULT_MODEL,
-      instructions: 'You are an AWS Cloud Practitioner tutor. Produce clean, safe, concise HTML for exam revision. Never output scripts, styles, links, tables, images, or attributes.',
+      instructions: 'You are an AWS Cloud Practitioner tutor. Produce concise, factual JSON for exam revision. Return only valid JSON.',
       input: buildPrompt(payload),
-      max_output_tokens: 520,
+      max_output_tokens: 700,
       store: false,
     }),
   })
@@ -249,7 +270,7 @@ async function createExplanation(payload, env) {
     throw new Error('OpenAI returned an empty explanation.')
   }
 
-  return explanation
+  return sanitizeStructuredExplanation(parseAiJson(explanation), payload.options)
 }
 
 export async function onRequestPost({ request, env }) {
@@ -279,13 +300,13 @@ export async function onRequestPost({ request, env }) {
     schemaVersion: normalized.schemaVersion,
     promptVersion: PROMPT_VERSION,
     question: normalized.question,
-    options: normalized.options.map((option) => ({
-      id: option.id,
-      key: option.key,
-      text: option.text,
-    })),
-    correctAnswer: normalized.correctAnswer,
-    correctAnswerIds: normalized.correctAnswerIds,
+    options: [...normalized.options]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((option) => ({
+        id: option.id,
+        text: option.text,
+      })),
+    correctAnswerIds: [...normalized.correctAnswerIds].sort(),
   })
   const questionHash = await sha256Hex(hashInput)
   const cachePrefix = normalized.schemaVersion >= 2 ? `explanations/v${PROMPT_VERSION}` : 'explanations'
@@ -294,12 +315,12 @@ export async function onRequestPost({ request, env }) {
   const cached = await env.AI_EXPLANATIONS.get(objectKey)
   if (cached) {
     const cachedPayload = await cached.json()
-    const explanation = cachedPayload.explanation || stripHtml(cachedPayload.explanationHtml || '')
-    const explanationHtml = sanitizeExplanationHtml(cachedPayload.explanationHtml) || formatExplanationHtml(explanation)
+    const structuredExplanation = sanitizeStructuredExplanation(cachedPayload.structuredExplanation, normalized.options)
     return jsonResponse({
       cached: true,
-      explanation,
-      explanationHtml,
+      structuredExplanation,
+      explanation: structuredExplanation.summary,
+      explanationHtml: '',
       questionHash: cachedPayload.questionHash,
       createdAt: cachedPayload.createdAt,
       model: cachedPayload.model,
@@ -307,9 +328,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   try {
-    const aiOutput = await createExplanation(normalized, env)
-    const explanationHtml = sanitizeExplanationHtml(aiOutput) || formatExplanationHtml(aiOutput)
-    const explanation = stripHtml(explanationHtml) || stripHtml(aiOutput)
+    const structuredExplanation = await createExplanation(normalized, env)
     const responsePayload = {
       schemaVersion: normalized.schemaVersion,
       promptVersion: PROMPT_VERSION,
@@ -320,10 +339,8 @@ export async function onRequestPost({ request, env }) {
       model: env.AI_EXPLANATION_MOCK === 'true' ? 'mock' : env.OPENAI_MODEL || DEFAULT_MODEL,
       createdAt: new Date().toISOString(),
       options: normalized.options,
-      correctAnswer: normalized.correctAnswer,
       correctAnswerIds: normalized.correctAnswerIds,
-      explanation,
-      explanationHtml,
+      structuredExplanation,
     }
 
     await env.AI_EXPLANATIONS.put(objectKey, JSON.stringify(responsePayload, null, 2), {
@@ -334,8 +351,9 @@ export async function onRequestPost({ request, env }) {
 
     return jsonResponse({
       cached: false,
-      explanation,
-      explanationHtml,
+      structuredExplanation,
+      explanation: structuredExplanation.summary,
+      explanationHtml: '',
       questionHash,
       createdAt: responsePayload.createdAt,
       model: responsePayload.model,
