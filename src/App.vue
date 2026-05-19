@@ -61,13 +61,13 @@
         <div class="options">
           <button
             v-for="option in currentQuestion.options"
-            :key="option.key"
+            :key="option.id"
             class="option-btn"
-            :class="optionClass(option.key)"
+            :class="optionClass(option.id)"
             :disabled="isCurrentSubmitted"
-            @click="toggleAnswer(option.key)"
+            @click="toggleAnswer(option.id)"
           >
-            <span class="option-key">{{ option.key }}</span>
+            <span class="option-key">{{ option.displayKey }}</span>
             <span>{{ option.text }}</span>
           </button>
         </div>
@@ -77,7 +77,7 @@
             <button class="submit-button" @click="submitCurrentQuestion" :disabled="isCurrentSubmitted || !hasCurrentAnswer">
               {{ isCurrentSubmitted ? 'Submitted' : 'Submit' }}
             </button>
-            <p class="answer" v-if="isCurrentSubmitted">Correct answer: {{ currentQuestion.answer.join(', ') }}</p>
+            <p class="answer" v-if="isCurrentSubmitted">Correct answer: {{ currentAnswerDisplay }}</p>
             <button
               class="ai-button"
               v-if="isCurrentSubmitted"
@@ -126,8 +126,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 
-const COOKIE_KEY = 'aws_mcq_dashboard_state'
+const COOKIE_KEY = 'aws_mcq_dashboard_state_v2'
 const CLOUDFLARE_API_ORIGIN = 'https://aws-cloud-practitioner-exam-prep.pages.dev'
+const OPTION_DISPLAY_KEYS = ['A', 'B', 'C', 'D', 'E']
 
 const exams = ref([])
 const rawExams = ref([])
@@ -177,6 +178,10 @@ const currentExplanationError = computed(() => {
 const isCurrentExplanationLoading = computed(() => {
   if (!currentQuestionKey.value) return false
   return Boolean(explanationStatusByQuestion.value[currentQuestionKey.value]?.loading)
+})
+const currentAnswerDisplay = computed(() => {
+  if (!currentQuestion.value) return ''
+  return getDisplayAnswers(currentQuestion.value, currentQuestion.value.answer).join(', ')
 })
 
 const answeredCount = computed(() => {
@@ -269,6 +274,47 @@ function shuffleQuestions(questions) {
   return shuffled
 }
 
+function hashSeed(value) {
+  let hash = 2166136261
+  const input = String(value)
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function shuffleWithSeed(items, seedText) {
+  const shuffled = [...items]
+  let seed = hashSeed(seedText)
+
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    seed = Math.imul(seed, 1664525) + 1013904223
+    const j = (seed >>> 0) % (i + 1)
+    const current = shuffled[i]
+    shuffled[i] = shuffled[j]
+    shuffled[j] = current
+  }
+
+  return shuffled
+}
+
+function prepareExams(loadedExams) {
+  return loadedExams.map((exam) => ({
+    ...exam,
+    questions: exam.questions.map((question) => ({
+      ...question,
+      options: shuffleWithSeed(
+        question.options,
+        `${exam.source_file}:${question.number}:options:v2`,
+      ).map((option, index) => ({
+        ...option,
+        displayKey: OPTION_DISPLAY_KEYS[index] || String(index + 1),
+      })),
+    })),
+  }))
+}
+
 function isValidQuestionOrder(exam, order) {
   if (!Array.isArray(order) || order.length !== exam.questions.length) return false
   const questionNumbers = new Set(exam.questions.map((q) => q.number))
@@ -309,18 +355,18 @@ function hasSavedAnswers(examKey) {
   return Object.values(answers).some((value) => Array.isArray(value) && value.length > 0)
 }
 
-function toggleAnswer(key) {
+function toggleAnswer(optionId) {
   if (isCurrentSubmitted.value) return
   const qNum = currentQuestion.value.number
   const map = { ...selectedAnswers.value }
   const existing = map[qNum] || []
 
   if (currentQuestion.value.answer.length > 1) {
-    map[qNum] = existing.includes(key)
-      ? existing.filter((k) => k !== key)
-      : [...existing, key].sort()
+    map[qNum] = existing.includes(optionId)
+      ? existing.filter((id) => id !== optionId)
+      : [...existing, optionId].sort()
   } else {
-    map[qNum] = [key]
+    map[qNum] = [optionId]
   }
 
   answersByExam.value = {
@@ -329,16 +375,31 @@ function toggleAnswer(key) {
   }
 }
 
-function optionClass(key) {
+function optionClass(optionId) {
   const picked = selectedAnswers.value[currentQuestion.value.number] || []
-  const isSelected = picked.includes(key)
-  const isCorrect = currentQuestion.value.answer.includes(key)
+  const isSelected = picked.includes(optionId)
+  const isCorrect = currentQuestion.value.answer.includes(optionId)
 
   return {
     selected: isSelected,
     correct: isCurrentSubmitted.value && isCorrect,
     wrong: isCurrentSubmitted.value && isSelected && !isCorrect,
   }
+}
+
+function getDisplayAnswers(question, answerIds) {
+  return answerIds
+    .map((answerId) => question.options.find((option) => option.id === answerId)?.displayKey)
+    .filter(Boolean)
+    .sort((a, b) => OPTION_DISPLAY_KEYS.indexOf(a) - OPTION_DISPLAY_KEYS.indexOf(b))
+}
+
+function getAiOptions(question) {
+  return question.options.map((option) => ({
+    id: option.id,
+    key: option.displayKey,
+    text: option.text,
+  }))
 }
 
 function navClass(idx, qNum) {
@@ -400,13 +461,19 @@ async function fetchAiExplanation() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        schemaVersion: 2,
         examTitle: currentExam.value.title,
         sourceFile: currentExam.value.source_file,
         questionNumber: currentQuestion.value.number,
         question: currentQuestion.value.question,
-        options: currentQuestion.value.options,
-        selectedAnswer: selectedAnswers.value[currentQuestion.value.number] || [],
-        correctAnswer: currentQuestion.value.answer,
+        options: getAiOptions(currentQuestion.value),
+        selectedAnswer: getDisplayAnswers(
+          currentQuestion.value,
+          selectedAnswers.value[currentQuestion.value.number] || [],
+        ),
+        correctAnswer: getDisplayAnswers(currentQuestion.value, currentQuestion.value.answer),
+        selectedAnswerIds: selectedAnswers.value[currentQuestion.value.number] || [],
+        correctAnswerIds: currentQuestion.value.answer,
       }),
     })
 
@@ -479,10 +546,11 @@ watch(selectedExamIndex, () => {
 
 onMounted(async () => {
   loadState()
-  const res = await fetch(`${import.meta.env.BASE_URL}practice-exams.json`)
+  const res = await fetch(`${import.meta.env.BASE_URL}practice-exams-v2.json`)
   const loadedExams = await res.json()
-  rawExams.value = loadedExams
-  exams.value = loadedExams
+  const preparedExams = prepareExams(loadedExams)
+  rawExams.value = preparedExams
+  exams.value = preparedExams
 
   if (selectedExamIndex.value > exams.value.length - 1) {
     selectedExamIndex.value = 0

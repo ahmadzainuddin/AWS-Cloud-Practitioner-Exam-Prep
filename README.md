@@ -110,6 +110,14 @@ AI explanation is only requested after a user submits an answer and clicks the `
 
 The Cloudflare Pages Function checks R2 first. If an explanation JSON already exists for the question hash, it returns the cached explanation. If not, it calls the OpenAI Responses API once, stores the generated explanation in R2, and returns it to the user.
 
+Schema v2 explanation objects are stored under:
+
+```text
+explanations/v2/{source_file}/question-{number}-{hash}.json
+```
+
+The older `explanations/{source_file}/...` cache remains valid for the previous A-E keyed payloads, but the current app writes new explanations to the v2 prefix. The frontend sends stable option IDs for cache integrity and displayed A-E letters for the AI prompt, so the explanation matches the shuffled labels shown to the user.
+
 R2 binding:
 
 ```text
@@ -142,14 +150,16 @@ The application loads exam data from:
 
 ```text
 public/practice-exams.json
+public/practice-exams-v2.json
 ```
 
-This is the single source of truth for the published exam dataset. Vite serves it as a public static asset at runtime.
+`practice-exams-v2.json` is the runtime data source for the app. Vite serves it as a public static asset at runtime.
 
 Each exam uses this structure:
 
 ```json
 {
+  "schema_version": 2,
   "source_file": "practice-exam-1.md",
   "title": "Practice Exam 1",
   "question_count": 50,
@@ -157,11 +167,12 @@ Each exam uses this structure:
     {
       "number": 1,
       "question": "Question text",
+      "select": 1,
       "options": [
-        { "key": "A", "text": "Option A" },
-        { "key": "B", "text": "Option B" }
+        { "id": "option_a", "text": "Option A" },
+        { "id": "option_b", "text": "Option B" }
       ],
-      "answer": ["A"]
+      "answer": ["option_a"]
     }
   ]
 }
@@ -171,8 +182,9 @@ Data quality rules:
 
 - `questions` must not be empty for any published exam.
 - Every question must have a non-empty `answer` array.
-- `answer` values must match option keys.
-- Multi-answer questions should use multiple keys, for example `["A", "D"]`.
+- `answer` values must match option IDs.
+- Multi-answer questions should use multiple IDs, for example `["opsworks", "codedeploy"]`.
+- `select` must match the final `answer.length`.
 - `question_count` must match the final `questions.length`.
 
 ## Progress Storage
@@ -180,14 +192,14 @@ Data quality rules:
 Progress is stored in a browser cookie named:
 
 ```text
-aws_mcq_dashboard_state
+aws_mcq_dashboard_state_v2
 ```
 
 The cookie stores selected exam index, current question index, selected answers, submitted questions, and randomized question order per exam. It is scoped to the site path and expires after one year. AI explanations are not stored in the browser cookie; shared explanations are cached in Cloudflare R2.
 
-When an exam is opened for the first time and no saved question order exists, the app reads questions from `public/practice-exams.json`, randomizes them, and saves the randomized order in the cookie. If the order already exists, the app reuses it instead of randomizing again. Resetting an exam clears that exam's saved order and creates a fresh randomized sequence.
+When an exam is opened for the first time and no saved question order exists, the app reads questions from `public/practice-exams-v2.json`, randomizes them, and saves the randomized order in the cookie. If the order already exists, the app reuses it instead of randomizing again. Resetting an exam clears that exam's saved order and creates a fresh randomized sequence.
 
-The question navigator always displays sorted session positions, such as `1` to `50`, while the underlying question content is randomized behind those positions.
+The question navigator always displays sorted session positions, such as `1` to `50`, while the underlying question content is randomized behind those positions. Option labels `A` to `E` are generated at runtime from stable option IDs, so the app can shuffle display order without changing the answer data.
 
 ## Deployment
 

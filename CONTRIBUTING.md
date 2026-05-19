@@ -60,13 +60,13 @@ Recommended prefixes:
 
 ## Data Contribution Rules
 
-Exam data is the most important part of this project. Before committing changes to `public/practice-exams.json`, verify the following:
+Exam data is the most important part of this project. Before committing changes to `public/practice-exams-v2.json`, verify the following:
 
-- Both JSON files are valid.
-- Both JSON files contain the same exam data.
+- The JSON file is valid.
 - Every exam has at least one question.
 - Every question has a non-empty `answer` array.
-- Every answer key exists in the question options.
+- Every answer ID exists in the question options.
+- `select` matches the number of answer IDs.
 - `question_count` matches the number of questions in the exam.
 - Question numbers are unique within an exam.
 - Question numbers remain stable because the app uses them to track answers, submissions, and cookie-saved randomized order.
@@ -74,7 +74,7 @@ Exam data is the most important part of this project. Before committing changes 
 Useful validation command:
 
 ```bash
-node -e "const fs=require('fs'); const f='public/practice-exams.json'; const exams=JSON.parse(fs.readFileSync(f,'utf8')); let questions=0, emptyAnswers=0, emptyExams=0; for (const exam of exams) { if (!exam.questions.length) emptyExams++; questions += exam.questions.length; for (const q of exam.questions) if (!Array.isArray(q.answer) || q.answer.length===0) emptyAnswers++; } console.log(f, { exams: exams.length, questions, emptyExams, emptyAnswers });"
+node -e "const fs=require('fs'); const f='public/practice-exams-v2.json'; const exams=JSON.parse(fs.readFileSync(f,'utf8')); let questions=0, emptyAnswers=0, emptyExams=0, errors=0; for (const exam of exams) { if (!exam.questions.length) emptyExams++; questions += exam.questions.length; for (const q of exam.questions) { const ids=new Set(q.options.map(o=>o.id)); if (!Array.isArray(q.answer)||q.answer.length===0) emptyAnswers++; if (q.select!==q.answer.length) errors++; for (const a of q.answer) if (!ids.has(a)) errors++; } } console.log(f, { exams: exams.length, questions, emptyExams, emptyAnswers, errors });"
 ```
 
 ## JSON Data Source
@@ -83,9 +83,10 @@ The app reads from:
 
 ```text
 public/practice-exams.json
+public/practice-exams-v2.json
 ```
 
-This file is the only maintained exam dataset. Do not add a duplicate root-level copy unless the project introduces a documented data generation workflow.
+`practice-exams-v2.json` is the runtime dataset. `practice-exams.json` is retained as the original keyed source for traceability.
 
 ## UI Contribution Guidelines
 

@@ -51,7 +51,8 @@ The main application component.
 
 Responsibilities:
 
-- Load `public/practice-exams.json` through Vite's public asset path
+- Load `public/practice-exams-v2.json` through Vite's public asset path
+- Generate option labels `A` to `E` from stable option IDs at runtime
 - Create or reuse cookie-saved randomized question order per exam
 - Store selected exam and question state
 - Render the sidebar, stats, question card, options, and navigator
@@ -96,15 +97,19 @@ Responsibilities:
 
 ## Data Files
 
-### `public/practice-exams.json`
+### `public/practice-exams-v2.json`
 
-Runtime data source and the only maintained exam dataset. Vite serves this file as a public static asset, and the app fetches it with:
+Runtime data source for the deployed app. Vite serves this file as a public static asset, and the app fetches it with:
 
 ```js
-fetch(`${import.meta.env.BASE_URL}practice-exams.json`)
+fetch(`${import.meta.env.BASE_URL}practice-exams-v2.json`)
 ```
 
 This is the file used by the deployed GitHub Pages app.
+
+### `public/practice-exams.json`
+
+Original keyed exam dataset retained for traceability.
 
 ## Documentation Assets
 
