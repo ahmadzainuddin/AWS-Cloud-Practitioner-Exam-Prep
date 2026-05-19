@@ -1,4 +1,5 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini'
+const PROMPT_VERSION = 3
 const MAX_TEXT_LENGTH = 4000
 const ALLOWED_ORIGINS = new Set([
   'https://ahmadzainuddin.github.io',
@@ -196,9 +197,12 @@ function buildPrompt(payload) {
     'The answer data may come from shuffled schema v2 options, so the displayed letters are the only letters users see.',
     'Return clean HTML only. Do not use Markdown. Do not wrap the output in code fences.',
     'Use only these tags: <p>, <strong>, <ul>, <li>, and <em>.',
-    'Format professionally with one short opening paragraph and one short bullet list for why the other options are less suitable.',
-    'Highlight the correct answer letter, correct service name, and important AWS service names with <strong>.',
-    'Do not invent facts outside the question context. Keep it concise and under 190 words.',
+    'Write one short opening paragraph that states the correct answer letters exactly.',
+    'Then write one <ul> with exactly one <li> for every displayed option letter, in option order.',
+    'Each <li> must start with <strong>{letter}.</strong> and briefly say whether that option is correct or incorrect for this question.',
+    'For multi-answer questions, explain every correct option and every incorrect option.',
+    'Highlight the correct answer letters, correct service names, and important AWS service names with <strong>.',
+    'Do not invent facts outside the question context. Keep it concise and under 260 words.',
   ].join('\n')
 }
 
@@ -222,7 +226,7 @@ async function createExplanation(payload, env) {
       model: env.OPENAI_MODEL || DEFAULT_MODEL,
       instructions: 'You are an AWS Cloud Practitioner tutor. Produce clean, safe, concise HTML for exam revision. Never output scripts, styles, links, tables, images, or attributes.',
       input: buildPrompt(payload),
-      max_output_tokens: 320,
+      max_output_tokens: 520,
       store: false,
     }),
   })
@@ -273,6 +277,7 @@ export async function onRequestPost({ request, env }) {
   const normalized = validation.normalized
   const hashInput = JSON.stringify({
     schemaVersion: normalized.schemaVersion,
+    promptVersion: PROMPT_VERSION,
     question: normalized.question,
     options: normalized.options.map((option) => ({
       id: option.id,
@@ -283,7 +288,7 @@ export async function onRequestPost({ request, env }) {
     correctAnswerIds: normalized.correctAnswerIds,
   })
   const questionHash = await sha256Hex(hashInput)
-  const cachePrefix = normalized.schemaVersion >= 2 ? 'explanations/v2' : 'explanations'
+  const cachePrefix = normalized.schemaVersion >= 2 ? `explanations/v${PROMPT_VERSION}` : 'explanations'
   const objectKey = `${cachePrefix}/${normalized.sourceFile}/question-${normalized.questionNumber}-${questionHash.slice(0, 16)}.json`
 
   const cached = await env.AI_EXPLANATIONS.get(objectKey)
@@ -307,6 +312,7 @@ export async function onRequestPost({ request, env }) {
     const explanation = stripHtml(explanationHtml) || stripHtml(aiOutput)
     const responsePayload = {
       schemaVersion: normalized.schemaVersion,
+      promptVersion: PROMPT_VERSION,
       examTitle: normalized.examTitle,
       sourceFile: normalized.sourceFile,
       questionNumber: normalized.questionNumber,

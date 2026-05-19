@@ -113,10 +113,10 @@ The Cloudflare Pages Function checks R2 first. If an explanation JSON already ex
 Schema v2 explanation objects are stored under:
 
 ```text
-explanations/v2/{source_file}/question-{number}-{hash}.json
+explanations/v3/{source_file}/question-{number}-{hash}.json
 ```
 
-The older `explanations/{source_file}/...` cache remains valid for the previous A-E keyed payloads, but the current app writes new explanations to the v2 prefix. The frontend sends stable option IDs for cache integrity and displayed A-E letters for the AI prompt, so the explanation matches the shuffled labels shown to the user.
+The current prompt writes new explanations under `explanations/v3/...` so older cached explanations that used looser formatting rules are not reused. The older `explanations/{source_file}/...` and `explanations/v2/...` caches remain in R2 for previous payloads. The frontend sends stable option IDs for cache integrity and displayed A-E letters for the AI prompt, so the explanation matches the shuffled labels shown to the user.
 
 R2 binding:
 
