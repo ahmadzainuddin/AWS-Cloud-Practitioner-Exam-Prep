@@ -126,7 +126,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 
-const COOKIE_KEY = 'aws_mcq_dashboard_state_v2'
+const COOKIE_KEY = 'aws_mcq_dashboard_state_v3'
 const CLOUDFLARE_API_ORIGIN = 'https://aws-cloud-practitioner-exam-prep.pages.dev'
 const OPTION_DISPLAY_KEYS = ['A', 'B', 'C', 'D', 'E']
 
@@ -137,6 +137,7 @@ const currentQuestionIdx = ref(0)
 const answersByExam = ref({})
 const submittedByExam = ref({})
 const questionOrderByExam = ref({})
+const optionOrderByExam = ref({})
 const explanationsByQuestion = ref({})
 const explanationStatusByQuestion = ref({})
 
@@ -146,7 +147,8 @@ const currentQuestion = computed(() => currentExam.value?.questions[currentQuest
 const currentExamKey = computed(() => currentExam.value?.source_file || '')
 const currentQuestionKey = computed(() => {
   if (!currentExamKey.value || !currentQuestion.value) return ''
-  return `${currentExamKey.value}:${currentQuestion.value.number}`
+  const optionOrderKey = currentQuestion.value.options.map((option) => option.id).join('|')
+  return `${currentExamKey.value}:${currentQuestion.value.number}:${optionOrderKey}`
 })
 const selectedAnswers = computed(() => {
   if (!currentExamKey.value) return {}
@@ -244,6 +246,7 @@ function saveState() {
     answersByExam: answersByExam.value,
     submittedByExam: submittedByExam.value,
     questionOrderByExam: questionOrderByExam.value,
+    optionOrderByExam: optionOrderByExam.value,
   }
   setCookie(COOKIE_KEY, JSON.stringify(payload))
 }
@@ -258,6 +261,7 @@ function loadState() {
     answersByExam.value = parsed.answersByExam || {}
     submittedByExam.value = parsed.submittedByExam || {}
     questionOrderByExam.value = parsed.questionOrderByExam || {}
+    optionOrderByExam.value = parsed.optionOrderByExam || {}
   } catch {
     // Ignore malformed cookie
   }
@@ -274,23 +278,10 @@ function shuffleQuestions(questions) {
   return shuffled
 }
 
-function hashSeed(value) {
-  let hash = 2166136261
-  const input = String(value)
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
-function shuffleWithSeed(items, seedText) {
-  const shuffled = [...items]
-  let seed = hashSeed(seedText)
-
+function shuffleOptions(options) {
+  const shuffled = [...options]
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    seed = Math.imul(seed, 1664525) + 1013904223
-    const j = (seed >>> 0) % (i + 1)
+    const j = Math.floor(Math.random() * (i + 1))
     const current = shuffled[i]
     shuffled[i] = shuffled[j]
     shuffled[j] = current
@@ -299,33 +290,51 @@ function shuffleWithSeed(items, seedText) {
   return shuffled
 }
 
-function prepareExams(loadedExams) {
-  return loadedExams.map((exam) => ({
-    ...exam,
-    questions: exam.questions.map((question) => ({
-      ...question,
-      options: shuffleWithSeed(
-        question.options,
-        `${exam.source_file}:${question.number}:options:v2`,
-      ).map((option, index) => ({
-        ...option,
-        displayKey: OPTION_DISPLAY_KEYS[index] || String(index + 1),
-      })),
-    })),
-  }))
-}
-
 function isValidQuestionOrder(exam, order) {
   if (!Array.isArray(order) || order.length !== exam.questions.length) return false
   const questionNumbers = new Set(exam.questions.map((q) => q.number))
   return order.every((number) => questionNumbers.has(number)) && new Set(order).size === order.length
 }
 
-function applyQuestionOrder(exam, order) {
+function isValidOptionOrder(question, order) {
+  if (!Array.isArray(order) || order.length !== question.options.length) return false
+  const optionIds = new Set(question.options.map((option) => option.id))
+  return order.every((id) => optionIds.has(id)) && new Set(order).size === order.length
+}
+
+function isValidExamOptionOrder(exam, orderByQuestion) {
+  if (!orderByQuestion || typeof orderByQuestion !== 'object') return false
+  return exam.questions.every((question) => isValidOptionOrder(question, orderByQuestion[question.number]))
+}
+
+function createExamOptionOrder(exam) {
+  return Object.fromEntries(
+    exam.questions.map((question) => [
+      question.number,
+      shuffleOptions(question.options).map((option) => option.id),
+    ]),
+  )
+}
+
+function applyOptionOrder(question, order) {
+  const optionMap = new Map(question.options.map((option) => [option.id, option]))
+  return {
+    ...question,
+    options: order.map((id, index) => ({
+      ...optionMap.get(id),
+      displayKey: OPTION_DISPLAY_KEYS[index] || String(index + 1),
+    })),
+  }
+}
+
+function applyQuestionOrder(exam, questionOrder, optionOrder) {
   const questionMap = new Map(exam.questions.map((question) => [question.number, question]))
   return {
     ...exam,
-    questions: order.map((number) => questionMap.get(number)).filter(Boolean),
+    questions: questionOrder
+      .map((number) => questionMap.get(number))
+      .filter(Boolean)
+      .map((question) => applyOptionOrder(question, optionOrder[question.number])),
   }
 }
 
@@ -335,8 +344,11 @@ function ensureExamQuestionOrder(examIndex, forceNewOrder = false) {
 
   const examKey = exam.source_file
   const storedOrder = questionOrderByExam.value[examKey]
+  const storedOptionOrder = optionOrderByExam.value[examKey]
   const shouldCreateOrder = forceNewOrder || !isValidQuestionOrder(exam, storedOrder)
+  const shouldCreateOptionOrder = forceNewOrder || !isValidExamOptionOrder(exam, storedOptionOrder)
   const order = shouldCreateOrder ? shuffleQuestions(exam.questions).map((question) => question.number) : storedOrder
+  const optionOrder = shouldCreateOptionOrder ? createExamOptionOrder(exam) : storedOptionOrder
 
   if (shouldCreateOrder) {
     questionOrderByExam.value = {
@@ -345,7 +357,14 @@ function ensureExamQuestionOrder(examIndex, forceNewOrder = false) {
     }
   }
 
-  const orderedExam = applyQuestionOrder(exam, order)
+  if (shouldCreateOptionOrder) {
+    optionOrderByExam.value = {
+      ...optionOrderByExam.value,
+      [examKey]: optionOrder,
+    }
+  }
+
+  const orderedExam = applyQuestionOrder(exam, order, optionOrder)
   exams.value = exams.value.map((item, idx) => (idx === examIndex ? orderedExam : item))
 }
 
@@ -521,9 +540,12 @@ function isQuestionCorrect(qNum) {
 function resetCurrentExam() {
   if (!currentExamKey.value) return
   const nextQuestionOrderByExam = { ...questionOrderByExam.value }
+  const nextOptionOrderByExam = { ...optionOrderByExam.value }
   delete nextQuestionOrderByExam[currentExamKey.value]
+  delete nextOptionOrderByExam[currentExamKey.value]
 
   questionOrderByExam.value = nextQuestionOrderByExam
+  optionOrderByExam.value = nextOptionOrderByExam
   answersByExam.value = {
     ...answersByExam.value,
     [currentExamKey.value]: {},
@@ -536,7 +558,7 @@ function resetCurrentExam() {
   ensureExamQuestionOrder(selectedExamIndex.value, true)
 }
 
-watch([selectedExamIndex, currentQuestionIdx, answersByExam, submittedByExam, questionOrderByExam], saveState, { deep: true })
+watch([selectedExamIndex, currentQuestionIdx, answersByExam, submittedByExam, questionOrderByExam, optionOrderByExam], saveState, { deep: true })
 
 watch(selectedExamIndex, () => {
   currentQuestionIdx.value = 0
@@ -548,9 +570,8 @@ onMounted(async () => {
   loadState()
   const res = await fetch(`${import.meta.env.BASE_URL}practice-exams-v2.json`)
   const loadedExams = await res.json()
-  const preparedExams = prepareExams(loadedExams)
-  rawExams.value = preparedExams
-  exams.value = preparedExams
+  rawExams.value = loadedExams
+  exams.value = loadedExams
 
   if (selectedExamIndex.value > exams.value.length - 1) {
     selectedExamIndex.value = 0

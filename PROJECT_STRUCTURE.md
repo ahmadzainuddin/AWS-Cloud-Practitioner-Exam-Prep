@@ -53,7 +53,7 @@ Responsibilities:
 
 - Load `public/practice-exams-v2.json` through Vite's public asset path
 - Generate option labels `A` to `E` from stable option IDs at runtime
-- Create or reuse cookie-saved randomized question order per exam
+- Create or reuse cookie-saved randomized question and option order per exam
 - Store selected exam and question state
 - Render the sidebar, stats, question card, options, and navigator
 - Track selected answers and submitted questions
@@ -223,7 +223,7 @@ public/practice-exams.json
         ↓
 src/App.vue fetch on mount
         ↓
-Create or reuse cookie-saved question order
+Create or reuse cookie-saved question and option order
         ↓
 Vue reactive state
         ↓

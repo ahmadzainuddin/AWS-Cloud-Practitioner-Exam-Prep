@@ -42,7 +42,7 @@ Current dataset:
 ## Features
 
 - Exam selector for available practice exams
-- Randomized question order saved per exam in browser cookies
+- Randomized question and option order saved per exam in browser cookies
 - Question navigation with previous and next controls
 - Single-answer and multi-answer question support
 - Correct and incorrect answer highlighting after submission
@@ -192,12 +192,12 @@ Data quality rules:
 Progress is stored in a browser cookie named:
 
 ```text
-aws_mcq_dashboard_state_v2
+aws_mcq_dashboard_state_v3
 ```
 
-The cookie stores selected exam index, current question index, selected answers, submitted questions, and randomized question order per exam. It is scoped to the site path and expires after one year. AI explanations are not stored in the browser cookie; shared explanations are cached in Cloudflare R2.
+The cookie stores selected exam index, current question index, selected answers, submitted questions, randomized question order, and randomized option order per exam. It is scoped to the site path and expires after one year. AI explanations are not stored in the browser cookie; shared explanations are cached in Cloudflare R2.
 
-When an exam is opened for the first time and no saved question order exists, the app reads questions from `public/practice-exams-v2.json`, randomizes them, and saves the randomized order in the cookie. If the order already exists, the app reuses it instead of randomizing again. Resetting an exam clears that exam's saved order and creates a fresh randomized sequence.
+When an exam is opened for the first time and no saved order exists, the app reads questions from `public/practice-exams-v2.json`, randomizes the question order and each question's option order, then saves those orders in the cookie. If the orders already exist, the app reuses them instead of randomizing again. Resetting an exam clears that exam's saved orders and creates fresh randomized sequences.
 
 The question navigator always displays sorted session positions, such as `1` to `50`, while the underlying question content is randomized behind those positions. Option labels `A` to `E` are generated at runtime from stable option IDs, so the app can shuffle display order without changing the answer data.
 
