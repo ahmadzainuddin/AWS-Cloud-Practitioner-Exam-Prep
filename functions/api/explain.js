@@ -13,7 +13,17 @@ const jsonHeaders = {
 
 function getAllowedOrigin(request) {
   const origin = request.headers.get('Origin')
-  return ALLOWED_ORIGINS.has(origin) ? origin : ''
+  if (!origin) return ''
+  return ALLOWED_ORIGINS.has(origin) || isAllowedLocalOrigin(origin) ? origin : ''
+}
+
+function isAllowedLocalOrigin(origin) {
+  try {
+    const url = new URL(origin)
+    return url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)
+  } catch {
+    return false
+  }
 }
 
 function corsHeaders(origin) {
@@ -275,8 +285,9 @@ async function createExplanation(payload, env) {
 }
 
 export async function onRequestPost({ request, env }) {
+  const requestOrigin = request.headers.get('Origin')
   const origin = getAllowedOrigin(request)
-  if (!origin) {
+  if (requestOrigin && !origin) {
     return jsonResponse({ error: 'Origin is not allowed.' }, 403)
   }
 
