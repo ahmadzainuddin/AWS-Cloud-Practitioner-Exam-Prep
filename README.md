@@ -113,10 +113,10 @@ The Cloudflare Pages Function checks R2 first. If an explanation JSON already ex
 Structured explanation objects are stored under:
 
 ```text
-explanations/v4/{source_file}/question-{number}-{hash}.json
+explanations/v5/{source_file}/question-{number}-{hash}.json
 ```
 
-The current prompt writes ID-based structured explanations under `explanations/v4/...`. The hash ignores shuffled A-E order, so one cached explanation can be reused across different option rotations. The older `explanations/{source_file}/...`, `explanations/v2/...`, and `explanations/v3/...` caches remain in R2 for previous payload formats.
+The current prompt writes ID-based structured explanations under `explanations/v5/...`. The hash ignores shuffled A-E order, so one cached explanation can be reused across different option rotations. The frontend adds the final correct/incorrect labels from the known answer IDs, while AI only supplies neutral option reasoning. Older `explanations/{source_file}/...`, `explanations/v2/...`, `explanations/v3/...`, and `explanations/v4/...` caches remain in R2 for previous payload formats.
 
 R2 binding:
 

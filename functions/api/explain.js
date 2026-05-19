@@ -1,5 +1,5 @@
 const DEFAULT_MODEL = 'gpt-4.1-mini'
-const PROMPT_VERSION = 4
+const PROMPT_VERSION = 5
 const MAX_TEXT_LENGTH = 4000
 const ALLOWED_ORIGINS = new Set([
   'https://ahmadzainuddin.github.io',
@@ -204,7 +204,8 @@ function buildPrompt(payload) {
     '{"summary":"short summary without option letters","optionExplanations":{"option_id":"brief reason for that option"}}',
     'The optionExplanations object must include exactly one entry for every provided optionId.',
     'Do not use A-E letters because the frontend randomizes display labels.',
-    'For each option reason, state whether it is correct or incorrect for this question.',
+    'Do not write "correct", "incorrect", "right", or "wrong" inside option explanations.',
+    'For each option reason, only explain the AWS fact that makes the option apply or not apply to the question.',
     'Do not invent facts outside the question context. Keep each reason concise.',
   ].join('\n')
 }
@@ -226,8 +227,8 @@ async function createExplanation(payload, env) {
         payload.options.map((option) => [
           option.id,
           payload.correctAnswerIds.includes(option.id)
-            ? 'Correct option in the mock response.'
-            : 'Incorrect option in the mock response.',
+            ? 'Mock reason for why this option matches the answer.'
+            : 'Mock reason for why this option does not match the answer.',
         ]),
       ),
     }, payload.options)

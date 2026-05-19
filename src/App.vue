@@ -441,7 +441,8 @@ function renderStructuredExplanation(question, structuredExplanation) {
     .map((option) => {
       const reason = optionExplanations[option.id]
       if (!reason) return ''
-      return `<li><strong>${escapeHtml(option.displayKey)}.</strong> ${escapeHtml(reason)}</li>`
+      const result = question.answer.includes(option.id) ? 'Correct answer' : 'Incorrect answer'
+      return `<li><strong>${escapeHtml(option.displayKey)}.</strong> <strong>${result}.</strong> ${escapeHtml(reason)}</li>`
     })
     .filter(Boolean)
     .join('')
