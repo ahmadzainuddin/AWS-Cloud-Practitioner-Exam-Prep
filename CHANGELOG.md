@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 The format follows a practical changelog style, with the newest changes listed first.
 
+## 2026-05-19
+
+### Added
+
+- Added schema v2 exam data with stable option IDs for safe option randomization.
+- Added ID-based AI explanation payloads and structured explanation responses.
+- Added backend validation that only allows explanation requests matching `public/practice-exams-v2.json`.
+- Added support for local Flutter web previews and native mobile requests to call the Cloudflare explanation API.
+
+### Changed
+
+- Randomized both question order and option order while keeping answer validation tied to stable option IDs.
+- Moved the public Vue app into its own repository folder and kept Flutter in a separate private repository.
+- Updated deployment workflow after making the Vue folder the repository root.
+- Updated AI explanation cache namespace to `explanations/v5/...`.
+
+### Fixed
+
+- Fixed AI explanations so displayed `A-E` labels can rotate without corrupting correct answer labels.
+- Fixed abuse risk where arbitrary external questions could be sent to the AI explanation API.
+- Fixed CORS handling so browser origins stay restricted while native mobile requests without `Origin` can work.
+
+### Verified
+
+- Confirmed `npm run build` completes successfully after the repository restructure.
+- Confirmed `functions/api/explain.js` passes `node --check`.
+
 ## 2026-05-07
 
 ### Added

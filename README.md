@@ -20,6 +20,12 @@ AWS Cloud Practitioner Exam Prep is a Vue-based practice exam dashboard for AWS 
 
 The dashboard is designed for focused exam practice. Users can select an exam, move between questions, submit answers, review the correct answer, request an AI explanation on demand, and track score and completion progress.
 
+This repository contains the public Vue web application. The private Flutter mobile app is maintained separately at:
+
+```text
+https://github.com/ahmadzainuddin/AWS-Cloud-Practitioner-Exam-Prep-Flutter
+```
+
 ## Screenshot
 
 ![AWS Cloud Practitioner Exam Prep dashboard](docs/screenshots/aws-cloud-practitioner-dashboard.png)
@@ -108,7 +114,9 @@ AI explanation is only requested after a user submits an answer and clicks the `
 /api/explain
 ```
 
-The Cloudflare Pages Function checks R2 first. If an explanation JSON already exists for the question hash, it returns the cached explanation. If not, it calls the OpenAI Responses API once, stores the generated explanation in R2, and returns it to the user.
+The Cloudflare Pages Function validates the submitted payload against `public/practice-exams-v2.json` before checking R2 or calling OpenAI. Requests for questions outside the approved dataset are rejected, which prevents arbitrary external questions from using the explanation API.
+
+After validation, the function checks R2 first. If an explanation JSON already exists for the question hash, it returns the cached explanation. If not, it calls the OpenAI Responses API once, stores the generated explanation in R2, and returns it to the user.
 
 Structured explanation objects are stored under:
 
@@ -217,6 +225,19 @@ The workflow runs on every push to `main` and performs:
 4. Production build
 5. GitHub Pages artifact upload
 6. GitHub Pages deployment
+
+For Cloudflare Pages, configure the project as a Vue/Vite app:
+
+```text
+Build command: npm run build
+Build output directory: dist
+```
+
+If deploying from a parent workspace that contains both `vue/` and `flutter/`, set the Cloudflare Pages root directory to:
+
+```text
+vue
+```
 
 ## Maintenance Notes
 
